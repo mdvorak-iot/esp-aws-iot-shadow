@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.11.0)
 
+include(${CMAKE_CURRENT_LIST_DIR}/device_shadow_for_aws/shadowFilePaths.cmake)
+
+set(SHADOW_COMPONENT_SOURCES src/lib.c)
+
 idf_component_register(
-    SRC_DIRS src
-    INCLUDE_DIRS include
+    SRCS ${SHADOW_SOURCES} ${SHADOW_COMPONENT_SOURCES}
+    INCLUDE_DIRS ${SHADOW_INCLUDE_PUBLIC_DIRS} include
+    REQUIRES freertos esp_common log json mqtt mbedtls
 )
