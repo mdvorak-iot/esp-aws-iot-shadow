@@ -1,10 +1,10 @@
 {
-    "name": "esp-lib-template",
+    "name": "aws_iot_shadow",
     "description": "TODO",
     "keywords": "esp esp32",
     "repository": {
         "type": "git",
-        "url": "https://github.com/mdvorak-iot/esp-lib-template.git"
+        "url": "https://github.com/mdvorak-iot/esp-aws-iot-shadow.git"
     },
     "authors": [
         {

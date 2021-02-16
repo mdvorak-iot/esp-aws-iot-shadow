@@ -1,6 +1,6 @@
-name: "lib_template"
+name: "aws_iot_shadow"
 description: TODO description.
-url: https://github.com/mdvorak-iot/esp-lib-template.git
+url: https://github.com/mdvorak-iot/esp-aws-iot-shadow.git
 targets:
   - esp32
 dependencies:
