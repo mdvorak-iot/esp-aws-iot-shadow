@@ -25,8 +25,9 @@ static const int SUBSCRIBED_GET_REJECTED_BIT = BIT11;
 static const int SUBSCRIBED_UPDATE_ACCEPTED_BIT = BIT12;
 static const int SUBSCRIBED_UPDATE_REJECTED_BIT = BIT13;
 static const int SUBSCRIBED_UPDATE_DELTA_BIT = BIT14;
+static const int SUBSCRIBED_UPDATE_DOCUMENTS_BIT = BIT15;
 
-static const int SUBSCRIBED_ALL_BITS = SUBSCRIBED_GET_ACCEPTED_BIT | SUBSCRIBED_GET_REJECTED_BIT | SUBSCRIBED_UPDATE_ACCEPTED_BIT | SUBSCRIBED_UPDATE_REJECTED_BIT | SUBSCRIBED_UPDATE_DELTA_BIT;
+static const int SUBSCRIBED_ALL_BITS = SUBSCRIBED_GET_ACCEPTED_BIT | SUBSCRIBED_GET_REJECTED_BIT | SUBSCRIBED_UPDATE_ACCEPTED_BIT | SUBSCRIBED_UPDATE_REJECTED_BIT | SUBSCRIBED_UPDATE_DELTA_BIT | SUBSCRIBED_UPDATE_DOCUMENTS_BIT;
 
 struct esp_aws_shadow_handle
 {
@@ -48,6 +49,7 @@ struct esp_aws_shadow_handle
         int update_accepted_msg_id;
         int update_rejected_msg_id;
         int update_delta_msg_id;
+        int update_documents_msg_id;
     } topic_substriptions;
 };
 
@@ -72,6 +74,7 @@ static void esp_aws_shadow_mqtt_connected(esp_mqtt_event_handle_t event, esp_aws
     handle->topic_substriptions.update_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, "/update/accepted", topic_name, sizeof(topic_name)), 0);
     handle->topic_substriptions.update_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, "/update/rejected", topic_name, sizeof(topic_name)), 0);
     handle->topic_substriptions.update_delta_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, "/update/delta", topic_name, sizeof(topic_name)), 0);
+    handle->topic_substriptions.update_documents_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, "/update/documents", topic_name, sizeof(topic_name)), 0);
 
     // Connected state
     xEventGroupSetBits(handle->event_group, CONNECTED_BIT);
@@ -106,6 +109,11 @@ static void esp_aws_shadow_mqtt_subscribed(esp_mqtt_event_handle_t event, esp_aw
     {
         ESP_LOGI(TAG, "subscribed to %s/update/delta", handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_DELTA_BIT);
+    }
+    else if (event->msg_id == handle->topic_substriptions.update_documents_msg_id)
+    {
+        ESP_LOGI(TAG, "subscribed to %s/update/documents", handle->topic_prefix);
+        bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_DOCUMENTS_BIT);
     }
 
     // For logging
