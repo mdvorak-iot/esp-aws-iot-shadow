@@ -276,3 +276,16 @@ esp_err_t esp_aws_shadow_delete(esp_aws_shadow_handle_t handle)
     // Success
     return ESP_OK;
 }
+
+bool esp_aws_shadow_is_ready(esp_aws_shadow_handle_t handle)
+{
+    EventBits_t bits = xEventGroupGetBits(handle->event_group);
+    return (bits & SUBSCRIBED_ALL_BITS) == SUBSCRIBED_ALL_BITS;
+}
+
+// TODO
+// bool esp_aws_shadow_wait_for_ready(esp_aws_shadow_handle_t handle, uint32_t timeout_ms)
+// {
+//     EventBits_t bits = xEventGroupWaitBits(handle->event_group, timeout_ms);
+//     return (bits & SUBSCRIBED_ALL_BITS) == SUBSCRIBED_ALL_BITS;
+// }

@@ -15,6 +15,8 @@ extern "C"
 
 	esp_err_t esp_aws_shadow_delete(esp_aws_shadow_handle_t handle);
 
+	bool esp_aws_shadow_is_ready(esp_aws_shadow_handle_t handle);
+
 #ifdef __cplusplus
 }
 #endif
