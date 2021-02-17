@@ -20,7 +20,6 @@ static const char TAG[] = "esp_aws_shadow";
 #define SHADOW_TOPIC_MAX_LENGTH (256U)
 
 static const int CONNECTED_BIT = BIT0;
-
 static const int SUBSCRIBED_GET_ACCEPTED_BIT = BIT10;
 static const int SUBSCRIBED_GET_REJECTED_BIT = BIT11;
 static const int SUBSCRIBED_UPDATE_ACCEPTED_BIT = BIT12;
@@ -76,6 +75,7 @@ static void esp_aws_shadow_mqtt_connected(esp_mqtt_event_handle_t event, esp_aws
 
     // Connected state
     xEventGroupSetBits(handle->event_group, CONNECTED_BIT);
+    ESP_LOGI(TAG, "%s connected to mqtt server", handle->topic_prefix);
 }
 
 static void esp_aws_shadow_mqtt_subscribed(esp_mqtt_event_handle_t event, esp_aws_shadow_handle_t handle)
@@ -94,7 +94,7 @@ static void esp_aws_shadow_mqtt_subscribed(esp_mqtt_event_handle_t event, esp_aw
     }
     else if (event->msg_id == handle->topic_substriptions.update_accepted_msg_id)
     {
-        ESP_LOGI(TAG, "subscribed to%s/update/accepted", handle->topic_prefix);
+        ESP_LOGI(TAG, "subscribed to %s/update/accepted", handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_ACCEPTED_BIT);
     }
     else if (event->msg_id == handle->topic_substriptions.update_rejected_msg_id)
@@ -115,6 +115,17 @@ static void esp_aws_shadow_mqtt_subscribed(esp_mqtt_event_handle_t event, esp_aw
     }
 }
 
+static void esp_aws_shadow_mqtt_data(esp_mqtt_event_handle_t event, esp_aws_shadow_handle_t handle)
+{
+    if (event->topic_len > handle->topic_prefix_len && strncmp(event->topic, handle->topic_prefix, handle->topic_prefix_len) == 0)
+    {
+        const char *action = event->topic + handle->topic_prefix_len;
+        size_t action_len = event->topic_len - handle->topic_prefix_len;
+
+        ESP_LOGI(TAG, "%s action %.*s", handle->topic_prefix, action_len, action);
+    }
+}
+
 static void esp_aws_shadow_mqtt_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
     esp_aws_shadow_handle_t handle = (esp_aws_shadow_handle_t)handler_args;
@@ -132,6 +143,10 @@ static void esp_aws_shadow_mqtt_handler(void *handler_args, esp_event_base_t bas
 
     case MQTT_EVENT_SUBSCRIBED:
         esp_aws_shadow_mqtt_subscribed(event, handle);
+        break;
+
+    case MQTT_EVENT_DATA:
+        esp_aws_shadow_mqtt_data(event, handle);
         break;
 
         /*
@@ -203,12 +218,12 @@ esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing
     if (shadow_name == NULL)
     {
         // Classic
-        snprintf(result->topic_prefix, sizeof(result->topic_prefix), "$aws/things/%s", thing_name);
+        snprintf(result->topic_prefix, sizeof(result->topic_prefix), "$aws/things/%s/shadow", thing_name);
     }
     else
     {
         // Named
-        snprintf(result->topic_prefix, sizeof(result->topic_prefix), "$aws/things/%s/name/%s", thing_name, shadow_name);
+        snprintf(result->topic_prefix, sizeof(result->topic_prefix), "$aws/things/%s/shadow/name/%s", thing_name, shadow_name);
     }
     result->topic_prefix_len = strlen(result->topic_prefix);
     if (result->topic_prefix == 0)
