@@ -1,0 +1,249 @@
+#include "esp_aws_shadow.h"
+#include "shadow.h"
+#include <string.h>
+#include <freertos/event_groups.h>
+
+static const char TAG[] = "esp_aws_shadow";
+
+static const int CONNECTED_BIT = BIT0;
+
+static const int SUBSCRIBED_GET_ACCEPTED_BIT = BIT10;
+static const int SUBSCRIBED_GET_REJECTED_BIT = BIT11;
+static const int SUBSCRIBED_UPDATE_ACCEPTED_BIT = BIT12;
+static const int SUBSCRIBED_UPDATE_REJECTED_BIT = BIT13;
+static const int SUBSCRIBED_UPDATE_DELTA_BIT = BIT14;
+
+static const int SUBSCRIBED_ALL_BITS = SUBSCRIBED_GET_ACCEPTED_BIT | SUBSCRIBED_GET_REJECTED_BIT | SUBSCRIBED_UPDATE_ACCEPTED_BIT | SUBSCRIBED_UPDATE_REJECTED_BIT | SUBSCRIBED_UPDATE_DELTA_BIT;
+
+struct esp_aws_shadow_handle
+{
+    esp_mqtt_client_handle_t client;
+    EventGroupHandle_t event_group;
+
+    char thing_name[SHADOW_THINGNAME_LENGTH_MAX];
+    uint8_t thing_name_len;
+    char shadow_name[SHADOW_NAME_LENGTH_MAX];
+    uint8_t shadow_name_len;
+
+    // For MQTT_EVENT_SUBSCRIBED tracking
+    struct topic_substriptions_t
+    {
+        int get_accepted_msg_id;
+        int get_rejected_msg_id;
+        int update_accepted_msg_id;
+        int update_rejected_msg_id;
+        int update_delta_msg_id;
+    } topic_substriptions;
+};
+
+// TODO use custom matching code, it will be easier
+inline static ShadowStatus_t esp_aws_shadow_assemble_topic_string(esp_aws_shadow_handle_t handle, ShadowTopicStringType_t topic_type, char *topic_buf, uint16_t topic_buf_len)
+{
+    uint16_t topic_len = 0;
+    return Shadow_AssembleTopicString(topic_type, handle->thing_name, handle->thing_name_len, handle->shadow_name, handle->shadow_name_len, topic_buf, topic_buf_len, &topic_len);
+}
+
+static void esp_aws_shadow_assemble_subscribe(esp_aws_shadow_handle_t handle, ShadowTopicStringType_t topic_type, int *msg_id, char *topic_buf, uint16_t topic_buf_len)
+{
+    ShadowStatus_t status = esp_aws_shadow_assemble_topic_string(handle, ShadowTopicStringTypeGetAccepted, topic_buf, topic_buf_len);
+    if (status != SHADOW_SUCCESS)
+    {
+        ESP_LOGE(TAG, "unable to get topic name for type %d: %d", topic_type, status);
+        return;
+    }
+    *msg_id = esp_mqtt_client_subscribe(handle->client, topic_buf, 0);
+}
+
+static void esp_aws_shadow_mqtt_connected(esp_mqtt_event_handle_t event, esp_aws_shadow_handle_t handle)
+{
+    // Reset tracking
+    xEventGroupClearBits(handle->event_group, SUBSCRIBED_ALL_BITS);
+    memset(&handle->topic_substriptions, 0, sizeof(handle->topic_substriptions));
+
+    // Subscribe
+    char topic_name[256] = {};
+
+    // TODO propagate errors somehow?
+    esp_aws_shadow_assemble_subscribe(handle, ShadowTopicStringTypeGetAccepted, &handle->topic_substriptions.get_accepted_msg_id, topic_name, sizeof(topic_name));
+    esp_aws_shadow_assemble_subscribe(handle, ShadowTopicStringTypeGetRejected, &handle->topic_substriptions.get_rejected_msg_id, topic_name, sizeof(topic_name));
+    esp_aws_shadow_assemble_subscribe(handle, ShadowTopicStringTypeUpdateAccepted, &handle->topic_substriptions.update_accepted_msg_id, topic_name, sizeof(topic_name));
+    esp_aws_shadow_assemble_subscribe(handle, ShadowTopicStringTypeUpdateRejected, &handle->topic_substriptions.update_rejected_msg_id, topic_name, sizeof(topic_name));
+    esp_aws_shadow_assemble_subscribe(handle, ShadowTopicStringTypeUpdateDelta, &handle->topic_substriptions.update_delta_msg_id, topic_name, sizeof(topic_name));
+
+    // Connected state
+    xEventGroupSetBits(handle->event_group, CONNECTED_BIT);
+}
+
+static void esp_aws_shadow_mqtt_subscribed(esp_mqtt_event_handle_t event, esp_aws_shadow_handle_t handle)
+{
+    EventBits_t bits = 0;
+
+    if (event->msg_id == handle->topic_substriptions.get_accepted_msg_id)
+    {
+        ESP_LOGI(TAG, "subscribed to $aws/things/%s%s%s/get/accepted", handle->thing_name, handle->shadow_name_len ? "/name/" : "", handle->shadow_name);
+        bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_GET_ACCEPTED_BIT);
+    }
+    else if (event->msg_id == handle->topic_substriptions.get_rejected_msg_id)
+    {
+        ESP_LOGI(TAG, "subscribed to $aws/things/%s%s%s/get/rejected", handle->thing_name, handle->shadow_name_len ? "/name/" : "", handle->shadow_name);
+        bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_GET_REJECTED_BIT);
+    }
+    else if (event->msg_id == handle->topic_substriptions.update_accepted_msg_id)
+    {
+        ESP_LOGI(TAG, "subscribed to $aws/things/%s%s%s/update/accepted", handle->thing_name, handle->shadow_name_len ? "/name/" : "", handle->shadow_name);
+        bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_ACCEPTED_BIT);
+    }
+    else if (event->msg_id == handle->topic_substriptions.update_rejected_msg_id)
+    {
+        ESP_LOGI(TAG, "subscribed to $aws/things/%s%s%s/update/rejected", handle->thing_name, handle->shadow_name_len ? "/name/" : "", handle->shadow_name);
+        bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_REJECTED_BIT);
+    }
+    else if (event->msg_id == handle->topic_substriptions.update_delta_msg_id)
+    {
+        ESP_LOGI(TAG, "subscribed to $aws/things/%s%s%s/update/delta", handle->thing_name, handle->shadow_name_len ? "/name/" : "", handle->shadow_name);
+        bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_DELTA_BIT);
+    }
+
+    // For logging
+    if ((bits & SUBSCRIBED_ALL_BITS) == SUBSCRIBED_ALL_BITS)
+    {
+        ESP_LOGI(TAG, "$aws/things/%s%s%s is ready", handle->thing_name, handle->shadow_name_len ? "/name/" : "", handle->shadow_name);
+    }
+}
+
+static void esp_aws_shadow_mqtt_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+{
+    esp_aws_shadow_handle_t handle = (esp_aws_shadow_handle_t)handler_args;
+    esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
+
+    switch (event->event_id)
+    {
+    case MQTT_EVENT_CONNECTED:
+        esp_aws_shadow_mqtt_connected(event, handle);
+        break;
+
+    case MQTT_EVENT_DISCONNECTED:
+        xEventGroupClearBits(handle->event_group, CONNECTED_BIT | SUBSCRIBED_ALL_BITS);
+        break;
+
+    case MQTT_EVENT_SUBSCRIBED:
+        esp_aws_shadow_mqtt_subscribed(event, handle);
+        break;
+
+        /*
+    case MQTT_EVENT_DATA:
+        ESP_LOGI(TAG, "MQTT_EVENT_DATA, topic=%.*s", event->topic_len, event->topic);
+        ESP_LOGI(TAG, "DATA=%.*s", event->data_len, event->data);
+
+        if (Shadow_MatchTopic(event->topic, event->topic_len, &messageType, &pcThingName, &usThingNameLength) == SHADOW_SUCCESS)
+        {
+            ESP_LOGI(TAG, "SHADOW thing=%.*s", usThingNameLength, pcThingName);
+        }
+        break;
+    case MQTT_EVENT_ERROR:
+        ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
+        // if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT)
+        // {
+        // 	ESP_LOGI(TAG, "Last error code reported from esp-tls: 0x%x", event->error_handle->esp_tls_last_esp_err);
+        // 	ESP_LOGI(TAG, "Last tls stack error number: 0x%x", event->error_handle->esp_tls_stack_err);
+        // 	ESP_LOGI(TAG, "Last captured errno : %d (%s)", event->error_handle->esp_transport_sock_errno,
+        // 			 strerror(event->error_handle->esp_transport_sock_errno));
+        // }
+        // else
+        if (event->error_handle->error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED)
+        {
+            ESP_LOGI(TAG, "Connection refused error: 0x%x", event->error_handle->connect_return_code);
+        }
+        else
+        {
+            ESP_LOGW(TAG, "Unknown error type: 0x%x", event->error_handle->error_type);
+        }
+        break;
+        */
+
+    default:
+        ESP_LOGD(TAG, "unhandled event: %d", event->event_id);
+        break;
+    }
+}
+
+esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing_name, const char *shadow_name, esp_aws_shadow_handle_t *handle)
+{
+    if (client == NULL || thing_name == NULL || handle == NULL)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    size_t thing_name_len = strlen(thing_name);
+    size_t shadow_name_len = shadow_name != NULL ? strlen(shadow_name) : 0;
+
+    if (thing_name_len == 0 || thing_name_len >= SHADOW_THINGNAME_LENGTH_MAX || shadow_name_len >= SHADOW_NAME_LENGTH_MAX)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // Alloc
+    esp_aws_shadow_handle_t result = (esp_aws_shadow_handle_t)malloc(sizeof(*result));
+    if (result == NULL)
+    {
+        return ESP_ERR_NO_MEM;
+    }
+
+    // Init
+    memset(result, 0, sizeof(*result));
+
+    result->client = client;
+    result->event_group = xEventGroupCreate();
+    configASSERT(result->event_group);
+
+    ESP_LOGI(TAG, "1");
+    strcpy(result->thing_name, thing_name);
+    result->thing_name_len = thing_name_len;
+
+    ESP_LOGI(TAG, "2");
+    if (shadow_name)
+    {
+        ESP_LOGI(TAG, "3");
+        strcpy(result->shadow_name, shadow_name);
+        result->shadow_name_len = shadow_name_len;
+    }
+
+    // Handler
+    ESP_LOGI(TAG, "4");
+    esp_err_t err = esp_mqtt_client_register_event(client, MQTT_EVENT_ANY, esp_aws_shadow_mqtt_handler, result);
+    if (err != ESP_OK)
+    {
+        ESP_LOGI(TAG, "5");
+        esp_aws_shadow_delete(result);
+        return err;
+    }
+
+    // Success
+    ESP_LOGI(TAG, "6");
+    *handle = result;
+    ESP_LOGI(TAG, "7");
+    return ESP_OK;
+}
+
+esp_err_t esp_aws_shadow_delete(esp_aws_shadow_handle_t handle)
+{
+    if (handle == NULL)
+    {
+        return ESP_OK;
+    }
+
+    // TODO event handler?
+    //esp_event_handler_unregister_with(handle->client->)
+
+    // Properly destroy
+    if (handle->event_group)
+    {
+        vEventGroupDelete(handle->event_group);
+    }
+
+    // Release handle
+    free(handle);
+
+    // Success
+    return ESP_OK;
+}

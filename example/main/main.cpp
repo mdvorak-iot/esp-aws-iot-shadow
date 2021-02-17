@@ -9,49 +9,22 @@
 #include <esp_wifi.h>
 #include <wifi_reconnect.h>
 #include "certs.h"
+#include "esp_aws_shadow.h"
 
 static const char TAG[] = "example";
 
 static esp_mqtt_client_handle_t mqtt_client = NULL;
+static esp_aws_shadow_handle_t shadow_client = NULL;
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
 	esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
-	esp_mqtt_client_handle_t client = event->client;
-	int msg_id;
-	// your_context_t *context = event->context;
+
 	switch (event->event_id)
 	{
-	case MQTT_EVENT_CONNECTED:
-		ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-		// msg_id = esp_mqtt_client_subscribe(client, "/topic/qos0", 0);
-		// ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
-
-		// msg_id = esp_mqtt_client_subscribe(client, "/topic/qos1", 1);
-		// ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
-
-		// msg_id = esp_mqtt_client_unsubscribe(client, "/topic/qos1");
-		// ESP_LOGI(TAG, "sent unsubscribe successful, msg_id=%d", msg_id);
-		break;
-	case MQTT_EVENT_DISCONNECTED:
-		ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
-		break;
-
-	case MQTT_EVENT_SUBSCRIBED:
-		ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
-		msg_id = esp_mqtt_client_publish(client, "/topic/qos0", "data", 0, 0, 0);
-		ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
-		break;
-	case MQTT_EVENT_UNSUBSCRIBED:
-		ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
-		break;
-	case MQTT_EVENT_PUBLISHED:
-		ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
-		break;
 	case MQTT_EVENT_DATA:
-		ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-		printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
-		printf("DATA=%.*s\r\n", event->data_len, event->data);
+		ESP_LOGI(TAG, "MQTT_EVENT_DATA, topic=%.*s", event->topic_len, event->topic);
+		ESP_LOGI(TAG, "DATA=%.*s", event->data_len, event->data);
 		break;
 	case MQTT_EVENT_ERROR:
 		ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
@@ -73,7 +46,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 		}
 		break;
 	default:
-		ESP_LOGI(TAG, "Other event id:%d", event->event_id);
 		break;
 	}
 }
@@ -124,7 +96,8 @@ static void setup()
 
 	ESP_LOGI(TAG, "free heap: %d bytes", esp_get_free_heap_size());
 	mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
-	esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, mqtt_event_handler, NULL);
+	ESP_ERROR_CHECK(esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, mqtt_event_handler, NULL));
+	ESP_ERROR_CHECK(esp_aws_shadow_init(mqtt_client, CONFIG_AWS_IOT_THING_NAME, NULL, &shadow_client));
 	ESP_ERROR_CHECK(esp_mqtt_client_start(mqtt_client));
 
 	// Setup complete
@@ -133,6 +106,19 @@ static void setup()
 
 static void run()
 {
+	for (;;)
+	{
+		vTaskDelay(5000 / portTICK_PERIOD_MS);
+
+		// time_t now;
+		// time(&now);
+
+		// char buf[100];
+		// int c = snprintf(buf, 100, R"JSON({"state":{"reported":{"welcome":"%d"}}})JSON", (int)now);
+
+		// int msg_id = esp_mqtt_client_publish(mqtt_client, SHADOW_TOPIC_STRING_UPDATE(CONFIG_AWS_IOT_THING_NAME), buf, c, 1, 0);
+		// ESP_LOGI(TAG, "sent /update successful, msg_id=%d", msg_id);
+	}
 }
 
 extern "C" void app_main()
