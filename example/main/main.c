@@ -114,7 +114,7 @@ static void shadow_event_handler(void *handler_args, esp_event_base_t event_base
 		{
 			// Handle incoming changes
 			shadow_updated(event->delta);
-			// Report they are processed (we can reuse delta object)
+			// Report they are processed (we can reuse delta object, if there are no extra reported values)
 			esp_aws_shadow_request_update_reported(event->handle, event->delta, NULL);
 		}
 	}
