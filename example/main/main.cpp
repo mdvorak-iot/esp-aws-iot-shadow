@@ -50,6 +50,12 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 	}
 }
 
+static void shadow_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+{
+	aws_shadow_event_data_t *event = (aws_shadow_event_data_t *)event_data;
+	ESP_LOGI(TAG, "received shadow event %d for %s", event_id, event->thing_name);
+}
+
 static void setup()
 {
 	// Initialize NVS
@@ -99,7 +105,10 @@ static void setup()
 	ESP_LOGI(TAG, "free heap: %d bytes", esp_get_free_heap_size());
 	mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
 	ESP_ERROR_CHECK(esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, mqtt_event_handler, NULL));
+
 	ESP_ERROR_CHECK(esp_aws_shadow_init(mqtt_client, CONFIG_AWS_IOT_THING_NAME, NULL, &shadow_client));
+	ESP_ERROR_CHECK(esp_aws_shadow_handler_register(shadow_client, AWS_SHADOW_EVENT_ANY, shadow_event_handler, NULL));
+
 	ESP_ERROR_CHECK(esp_mqtt_client_start(mqtt_client));
 
 	// Setup complete

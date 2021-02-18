@@ -15,11 +15,12 @@ extern "C"
 
 	typedef enum
 	{
-		AWS_SHADOW_EVENT_READY,			/** Connected and initialized */
-		AWS_SHADOW_EVENT_DISCONNECTED,	/** Disconnected from the server */
-		AWS_SHADOW_EVENT_ERROR,			/** Received error to an action */
-		AWS_SHADOW_EVENT_DESIRED_STATE, /** Received updated desired state */
-		AWS_SHADOW_EVENT_MAX,			/** Invalid event ID */
+		AWS_SHADOW_EVENT_ANY = ESP_EVENT_ANY_ID, /** Handle any event */
+		AWS_SHADOW_EVENT_READY = 0,				 /** Connected and initialized */
+		AWS_SHADOW_EVENT_DISCONNECTED,			 /** Disconnected from the server */
+		AWS_SHADOW_EVENT_ERROR,					 /** Received error to an action */
+		AWS_SHADOW_EVENT_DESIRED_STATE,			 /** Received updated desired state */
+		AWS_SHADOW_EVENT_MAX,					 /** Invalid event ID */
 	} aws_shadow_event_t;
 
 	typedef struct
@@ -33,6 +34,12 @@ extern "C"
 	esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing_name, const char *shadow_name, esp_aws_shadow_handle_t *handle);
 
 	esp_err_t esp_aws_shadow_delete(esp_aws_shadow_handle_t handle);
+
+	esp_err_t esp_aws_shadow_handler_register(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id, esp_event_handler_t event_handler, void *event_handler_arg);
+
+	esp_err_t esp_aws_shadow_handler_instance_register(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id, esp_event_handler_t event_handler, void *event_handler_arg, esp_event_handler_instance_t *handler_ctx_arg);
+
+	esp_err_t esp_aws_shadow_handler_instance_unregister(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id, esp_event_handler_instance_t handler_ctx_arg);
 
 	bool esp_aws_shadow_is_ready(esp_aws_shadow_handle_t handle);
 

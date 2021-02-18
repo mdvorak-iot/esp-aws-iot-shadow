@@ -371,8 +371,13 @@ esp_err_t esp_aws_shadow_delete(esp_aws_shadow_handle_t handle)
         return ESP_OK;
     }
 
-    // TODO event handler?
-    //esp_event_handler_unregister_with(handle->client->)
+    // Unregister event handler
+    // TODO esp_mqtt_client_unregister_event is not implemented, without it there is a leak, but in real life this won't be used anyway
+    // esp_err_t err = esp_mqtt_client_unregister_event(client, MQTT_EVENT_ANY, esp_aws_shadow_mqtt_handler, result);
+    // if (err != ESP_OK)
+    // {
+    //     ESP_LOGW(TAG, "failed to unregister event handler: %d", err);
+    // }
 
     // Properly destroy
     if (handle->event_group)
@@ -385,6 +390,21 @@ esp_err_t esp_aws_shadow_delete(esp_aws_shadow_handle_t handle)
 
     // Success
     return ESP_OK;
+}
+
+esp_err_t esp_aws_shadow_handler_register(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id, esp_event_handler_t event_handler, void *event_handler_arg)
+{
+    return esp_aws_shadow_handler_instance_register(handle, event_id, event_handler, event_handler_arg, NULL);
+}
+
+esp_err_t esp_aws_shadow_handler_instance_register(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id, esp_event_handler_t event_handler, void *event_handler_arg, esp_event_handler_instance_t *handler_ctx_arg)
+{
+    return esp_event_handler_instance_register_with(handle->event_loop, AWS_SHADOW_EVENT, event_id, event_handler, event_handler_arg, handler_ctx_arg);
+}
+
+esp_err_t esp_aws_shadow_handler_instance_unregister(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id, esp_event_handler_instance_t handler_ctx_arg)
+{
+    return esp_event_handler_instance_unregister_with(handle->event_loop, AWS_SHADOW_EVENT, event_id, handler_ctx_arg);
 }
 
 bool esp_aws_shadow_is_ready(esp_aws_shadow_handle_t handle)
