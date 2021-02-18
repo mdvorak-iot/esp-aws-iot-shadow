@@ -89,14 +89,6 @@ static void setup()
 
 	// NOTE this assumes we have WiFi already stored in NVS
 
-	// Connect
-	wifi_reconnect_resume();
-	if (!wifi_reconnect_wait_for_connection(15000))
-	{
-		ESP_LOGE(TAG, "wifi connection failed, example cannot continue");
-		return;
-	}
-
 	// MQTT
 	esp_mqtt_client_config_t mqtt_cfg = {};
 	mqtt_cfg.host = CONFIG_AWS_IOT_MQTT_HOST;
@@ -112,9 +104,16 @@ static void setup()
 	mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
 	ESP_ERROR_CHECK(esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, mqtt_event_handler, NULL));
 
+	// Shadow
 	ESP_ERROR_CHECK(esp_aws_shadow_init(mqtt_client, CONFIG_AWS_IOT_THING_NAME, NULL, &shadow_client));
 	ESP_ERROR_CHECK(esp_aws_shadow_handler_register(shadow_client, AWS_SHADOW_EVENT_ANY, shadow_event_handler, NULL));
 
+	// Connect
+	wifi_reconnect_resume();
+	if (!wifi_reconnect_wait_for_connection(15000))
+	{
+		ESP_LOGE(TAG, "wifi connection timeout");
+	}
 	ESP_ERROR_CHECK(esp_mqtt_client_start(mqtt_client));
 
 	// Setup complete
