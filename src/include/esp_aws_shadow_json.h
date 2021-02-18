@@ -8,9 +8,9 @@ extern "C"
 {
 #endif
 
-    cJSON *esp_aws_shadow_parse_response_accepted(const char *data, size_t data_len, aws_shadow_event_data_t *output);
+    cJSON *esp_aws_shadow_parse_update_accepted(const char *data, size_t data_len, aws_shadow_event_data_t *output);
 
-    cJSON *esp_aws_shadow_parse_response_delta(const char *data, size_t data_len, aws_shadow_event_data_t *output);
+    cJSON *esp_aws_shadow_parse_update_delta(const char *data, size_t data_len, aws_shadow_event_data_t *output);
 
 #ifdef __cplusplus
 }

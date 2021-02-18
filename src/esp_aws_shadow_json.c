@@ -1,6 +1,8 @@
 #include "esp_aws_shadow_json.h"
 #include <esp_idf_version.h>
 
+// See https://docs.aws.amazon.com/iot/latest/developerguide/device-shadow-document.html#device-shadow-example-response-json
+
 static cJSON *esp_aws_shadow_parse_json(const char *data, size_t data_len)
 {
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 3, 0)
@@ -14,7 +16,7 @@ static cJSON *esp_aws_shadow_parse_json(const char *data, size_t data_len)
     return root;
 }
 
-cJSON *esp_aws_shadow_parse_response_accepted(const char *data, size_t data_len, aws_shadow_event_data_t *output)
+cJSON *esp_aws_shadow_parse_update_accepted(const char *data, size_t data_len, aws_shadow_event_data_t *output)
 {
     cJSON *root = esp_aws_shadow_parse_json(data, data_len);
     output->root = root;
@@ -30,7 +32,7 @@ cJSON *esp_aws_shadow_parse_response_accepted(const char *data, size_t data_len,
     return root;
 }
 
-cJSON *esp_aws_shadow_parse_response_delta(const char *data, size_t data_len, aws_shadow_event_data_t *output)
+cJSON *esp_aws_shadow_parse_update_delta(const char *data, size_t data_len, aws_shadow_event_data_t *output)
 {
     cJSON *root = esp_aws_shadow_parse_json(data, data_len);
     output->root = root;

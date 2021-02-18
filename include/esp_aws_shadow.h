@@ -20,7 +20,9 @@ extern "C"
 		AWS_SHADOW_EVENT_READY = 0,				 /** Connected and initialized */
 		AWS_SHADOW_EVENT_DISCONNECTED,			 /** Disconnected from the server */
 		AWS_SHADOW_EVENT_ERROR,					 /** Received error to an action */
-		AWS_SHADOW_EVENT_STATE,					 /** Received an updated state */
+		AWS_SHADOW_EVENT_UPDATE_ACCEPTED,		 /** Received an updated state */
+		AWS_SHADOW_EVENT_UPDATE_DELTA,			 /** Received a state delta */
+		AWS_SHADOW_EVENT_DELETE_ACCEPTED,		 /** Shadow was deleted */
 		AWS_SHADOW_EVENT_MAX,					 /** Invalid event ID */
 	} aws_shadow_event_t;
 

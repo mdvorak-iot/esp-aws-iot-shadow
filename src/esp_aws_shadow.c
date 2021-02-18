@@ -25,9 +25,9 @@ static const int SUBSCRIBED_GET_REJECTED_BIT = BIT13;
 static const int SUBSCRIBED_UPDATE_ACCEPTED_BIT = BIT14;
 static const int SUBSCRIBED_UPDATE_REJECTED_BIT = BIT15;
 static const int SUBSCRIBED_UPDATE_DELTA_BIT = BIT16;
-static const int SUBSCRIBED_UPDATE_DOCUMENTS_BIT = BIT17;
+static const int SUBSCRIBED_DELETE_ACCEPTED_BIT = BIT17;
 
-static const int SUBSCRIBED_ALL_BITS = SUBSCRIBED_GET_ACCEPTED_BIT | SUBSCRIBED_GET_REJECTED_BIT | SUBSCRIBED_UPDATE_ACCEPTED_BIT | SUBSCRIBED_UPDATE_REJECTED_BIT | SUBSCRIBED_UPDATE_DELTA_BIT | SUBSCRIBED_UPDATE_DOCUMENTS_BIT;
+static const int SUBSCRIBED_ALL_BITS = SUBSCRIBED_GET_ACCEPTED_BIT | SUBSCRIBED_GET_REJECTED_BIT | SUBSCRIBED_UPDATE_ACCEPTED_BIT | SUBSCRIBED_UPDATE_REJECTED_BIT | SUBSCRIBED_UPDATE_DELTA_BIT | SUBSCRIBED_DELETE_ACCEPTED_BIT;
 
 struct esp_aws_shadow_handle
 {
@@ -48,7 +48,7 @@ struct esp_aws_shadow_handle
         int update_accepted_msg_id;
         int update_rejected_msg_id;
         int update_delta_msg_id;
-        int update_documents_msg_id;
+        int delete_accepted_msg_id;
     } topic_substriptions;
 };
 
@@ -71,15 +71,32 @@ static esp_err_t esp_aws_shadow_event_dispatch(esp_event_loop_handle_t event_loo
     return esp_event_loop_run(event_loop, 0);
 }
 
-static esp_err_t esp_aws_shadow_event_dispatch_state_accepted(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
+static esp_err_t esp_aws_shadow_event_dispatch_update_accepted(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
 {
-    aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_STATE);
+    aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_UPDATE_ACCEPTED);
 
     // Parse and publish data (delete after dispatch)
-    cJSON *root = esp_aws_shadow_parse_response_accepted(event->data, event->data_len, &shadow_event);
+    cJSON *root = esp_aws_shadow_parse_update_accepted(event->data, event->data_len, &shadow_event);
     if (root == NULL)
     {
-        ESP_LOGW(TAG, "failed to parse json document");
+        ESP_LOGW(TAG, "failed to parse accepted json document");
+    }
+
+    esp_err_t err = esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
+    cJSON_Delete(root);
+
+    return err;
+}
+
+static esp_err_t esp_aws_shadow_event_dispatch_update_delta(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
+{
+    aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_UPDATE_DELTA);
+
+    // Parse and publish data (delete after dispatch)
+    cJSON *root = esp_aws_shadow_parse_update_delta(event->data, event->data_len, &shadow_event);
+    if (root == NULL)
+    {
+        ESP_LOGW(TAG, "failed to parse delta json document");
     }
 
     esp_err_t err = esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
@@ -106,12 +123,12 @@ static void esp_aws_shadow_mqtt_connected(esp_aws_shadow_handle_t handle, esp_mq
     // Subscribe
     char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
 
-    handle->topic_substriptions.get_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, "/get/accepted", topic_name, sizeof(topic_name)), 0);
-    handle->topic_substriptions.get_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, "/get/rejected", topic_name, sizeof(topic_name)), 0);
-    handle->topic_substriptions.update_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, "/update/accepted", topic_name, sizeof(topic_name)), 0);
-    handle->topic_substriptions.update_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, "/update/rejected", topic_name, sizeof(topic_name)), 0);
-    handle->topic_substriptions.update_delta_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, "/update/delta", topic_name, sizeof(topic_name)), 0);
-    handle->topic_substriptions.update_documents_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, "/update/documents", topic_name, sizeof(topic_name)), 0);
+    handle->topic_substriptions.get_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_GET SHADOW_SUFFIX_ACCEPTED), topic_name, sizeof(topic_name)), 0);
+    handle->topic_substriptions.get_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_GET SHADOW_SUFFIX_REJECTED), topic_name, sizeof(topic_name)), 0);
+    handle->topic_substriptions.update_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_UPDATE SHADOW_SUFFIX_ACCEPTED), topic_name, sizeof(topic_name)), 0);
+    handle->topic_substriptions.update_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_UPDATE SHADOW_SUFFIX_REJECTED), topic_name, sizeof(topic_name)), 0);
+    handle->topic_substriptions.update_delta_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_UPDATE SHADOW_SUFFIX_DELTA), topic_name, sizeof(topic_name)), 0);
+    handle->topic_substriptions.delete_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_DELETE SHADOW_SUFFIX_ACCEPTED), topic_name, sizeof(topic_name)), 0);
 
     // Connected state
     xEventGroupSetBits(handle->event_group, CONNECTED_BIT);
@@ -155,10 +172,10 @@ static void esp_aws_shadow_mqtt_subscribed(esp_aws_shadow_handle_t handle, esp_m
         ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_UPDATE SHADOW_SUFFIX_DELTA, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_DELTA_BIT);
     }
-    else if (event->msg_id == handle->topic_substriptions.update_documents_msg_id)
+    else if (event->msg_id == handle->topic_substriptions.delete_accepted_msg_id)
     {
-        ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_UPDATE SHADOW_SUFFIX_DOCUMENT, handle->topic_prefix);
-        bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_DOCUMENTS_BIT);
+        ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_DELETE SHADOW_SUFFIX_ACCEPTED, handle->topic_prefix);
+        bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_DELETE_ACCEPTED_BIT);
     }
 
     // Ready?
@@ -182,10 +199,10 @@ static void esp_aws_shadow_mqtt_data_get_op(esp_aws_shadow_handle_t handle, esp_
     if (op_len == SHADOW_SUFFIX_ACCEPTED_LENGTH && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
     {
         // /get/accepted
-        esp_err_t err = esp_aws_shadow_event_dispatch_state_accepted(handle, event);
+        esp_err_t err = esp_aws_shadow_event_dispatch_update_accepted(handle, event);
         if (err != ESP_OK)
         {
-            ESP_LOGE(TAG, "event AWS_SHADOW_EVENT_STATE dispatch failed: %d", err);
+            ESP_LOGE(TAG, "event AWS_SHADOW_EVENT_UPDATE_ACCEPTED dispatch failed: %d", err);
         }
     }
     else if (op_len == SHADOW_SUFFIX_REJECTED_LENGTH && strncmp(op, SHADOW_SUFFIX_REJECTED, SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
@@ -206,10 +223,10 @@ static void esp_aws_shadow_mqtt_data_update_op(esp_aws_shadow_handle_t handle, e
     if (op_len == SHADOW_SUFFIX_ACCEPTED_LENGTH && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
     {
         // /update/accepted
-        esp_err_t err = esp_aws_shadow_event_dispatch_state_accepted(handle, event);
+        esp_err_t err = esp_aws_shadow_event_dispatch_update_accepted(handle, event);
         if (err != ESP_OK)
         {
-            ESP_LOGE(TAG, "event AWS_SHADOW_EVENT_STATE dispatch failed: %d", err);
+            ESP_LOGE(TAG, "event AWS_SHADOW_EVENT_UPDATE_ACCEPTED dispatch failed: %d", err);
         }
     }
     else if (op_len == SHADOW_SUFFIX_REJECTED_LENGTH && strncmp(op, SHADOW_SUFFIX_REJECTED, SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
@@ -223,25 +240,41 @@ static void esp_aws_shadow_mqtt_data_update_op(esp_aws_shadow_handle_t handle, e
     else if (op_len == SHADOW_SUFFIX_DELTA_LENGTH && strncmp(op, SHADOW_SUFFIX_DELTA, SHADOW_SUFFIX_DELTA_LENGTH) == 0)
     {
         // /update/delta
-        // TODO
+        esp_err_t err = esp_aws_shadow_event_dispatch_update_delta(handle, event);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "event AWS_SHADOW_EVENT_UPDATE_DELTA dispatch failed: %d", err);
+        }
     }
-    else if (op_len == SHADOW_SUFFIX_DOCUMENT_LENGTH && strncmp(op, SHADOW_SUFFIX_DOCUMENT, SHADOW_SUFFIX_DOCUMENT_LENGTH) == 0)
-    {
-        // TODO
-        // /update/document
-        //aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_STATE);
+}
 
-        // Parse and publish data (delete after dispatch)
-        // cJSON *root = esp_aws_shadow_parse_response_document(event->data, event->data_len, &shadow_event);
-        // esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
-        // cJSON_Delete(root);
+static void esp_aws_shadow_mqtt_data_delete_op(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event, const char *action, size_t action_len)
+{
+    const char *op = action + SHADOW_OP_DELETE_LENGTH;
+    size_t op_len = action_len - SHADOW_OP_DELETE_LENGTH;
+
+    if (op_len == SHADOW_SUFFIX_ACCEPTED_LENGTH && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
+    {
+        // /delete/accepted
+        // TODO
+        // esp_err_t err = esp_aws_shadow_event_dispatch_delete_accepted(handle, event);
+        // if (err != ESP_OK)
+        // {
+        //     ESP_LOGE(TAG, "event AWS_SHADOW_EVENT_DELETE_ACCEPTED dispatch failed: %d", err);
+        // }
+    }
+    else if (op_len == SHADOW_SUFFIX_REJECTED_LENGTH && strncmp(op, SHADOW_SUFFIX_REJECTED, SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
+    {
+        // /delete/rejected
+        // TODO handle error
+        aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_ERROR);
+        // TODO data
+        esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
     }
 }
 
 static void esp_aws_shadow_mqtt_data(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
 {
-    // See https://docs.aws.amazon.com/iot/latest/developerguide/device-shadow-document.html#device-shadow-example-response-json
-
     if (event->topic_len > handle->topic_prefix_len && strncmp(event->topic, handle->topic_prefix, handle->topic_prefix_len) == 0)
     {
         const char *action = event->topic + handle->topic_prefix_len;
@@ -258,6 +291,11 @@ static void esp_aws_shadow_mqtt_data(esp_aws_shadow_handle_t handle, esp_mqtt_ev
         {
             // Update operation
             esp_aws_shadow_mqtt_data_update_op(handle, event, action, action_len);
+        }
+        else if (action_len >= SHADOW_OP_DELETE_LENGTH && strncmp(action, SHADOW_OP_DELETE, SHADOW_OP_DELETE_LENGTH) == 0)
+        {
+            // Delete operation
+            esp_aws_shadow_mqtt_data_delete_op(handle, event, action, action_len);
         }
     }
 }
