@@ -82,7 +82,6 @@ static esp_err_t esp_aws_shadow_event_dispatch_update_accepted(esp_aws_shadow_ha
         ESP_LOGW(TAG, "failed to parse accepted json document");
     }
 
-    shadow_event.root = root;
     esp_err_t err = esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
     cJSON_Delete(root);
 
@@ -100,7 +99,6 @@ static esp_err_t esp_aws_shadow_event_dispatch_update_delta(esp_aws_shadow_handl
         ESP_LOGW(TAG, "failed to parse delta json document");
     }
 
-    shadow_event.root = root;
     esp_err_t err = esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
     cJSON_Delete(root);
 
@@ -112,15 +110,14 @@ static esp_err_t esp_aws_shadow_event_dispatch_error(esp_aws_shadow_handle_t han
     aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_ERROR);
     aws_shadow_event_error_t shadow_error = {};
 
+    // TODO provide info, what action actually failed
+
     // Parse and publish data (delete after dispatch)
-    cJSON *root = esp_aws_shadow_parse_error(event->data, event->data_len, &shadow_error);
+    cJSON *root = esp_aws_shadow_parse_error(event->data, event->data_len, &shadow_event, &shadow_error);
     if (root == NULL)
     {
         ESP_LOGW(TAG, "failed to parse error json document");
     }
-
-    shadow_event.root = root;
-    shadow_event.error = &shadow_error;
 
     esp_err_t err = esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
     cJSON_Delete(root);

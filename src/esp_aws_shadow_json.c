@@ -20,12 +20,12 @@ cJSON *esp_aws_shadow_parse_update_accepted(const char *data, size_t data_len, a
 {
     cJSON *root = esp_aws_shadow_parse_json(data, data_len);
     cJSON *state = cJSON_GetObjectItemCaseSensitive(root, "state");
-    if (state != NULL)
-    {
-        output->desired = cJSON_GetObjectItemCaseSensitive(state, "desired");
-        output->reported = cJSON_GetObjectItemCaseSensitive(state, "reported");
-        output->delta = cJSON_GetObjectItemCaseSensitive(state, "delta");
-    }
+    // Note: all cJSON methods are NULL-safe
+    output->root = root;
+    output->desired = cJSON_GetObjectItemCaseSensitive(state, "desired");
+    output->reported = cJSON_GetObjectItemCaseSensitive(state, "reported");
+    output->delta = cJSON_GetObjectItemCaseSensitive(state, "delta");
+    output->client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, "clientToken"));
 
     return root;
 }
@@ -34,16 +34,22 @@ cJSON *esp_aws_shadow_parse_update_delta(const char *data, size_t data_len, aws_
 {
     cJSON *root = esp_aws_shadow_parse_json(data, data_len);
     // Note: delta document have attributes directly under state attribute
+    output->root = root;
     output->delta = cJSON_GetObjectItemCaseSensitive(root, "state");
+    output->client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, "clientToken"));
     return root;
 }
 
-cJSON *esp_aws_shadow_parse_error(const char *data, size_t data_len, aws_shadow_event_error_t *error)
+cJSON *esp_aws_shadow_parse_error(const char *data, size_t data_len, aws_shadow_event_data_t *output, aws_shadow_event_error_t *error)
 {
     cJSON *root = esp_aws_shadow_parse_json(data, data_len);
-    
+
     error->code = cJSON_GetObjectItemCaseSensitive(root, "code")->valueint;
     error->message = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, "message"));
+
+    output->root = root;
+    output->client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, "clientToken"));
+    output->error = error;
 
     return root;
 }

@@ -42,6 +42,7 @@ extern "C"
 		const cJSON *desired;
 		const cJSON *reported;
 		const cJSON *delta;
+		const char *client_token;
 		const aws_shadow_event_error_t *error;
 	} aws_shadow_event_data_t;
 
