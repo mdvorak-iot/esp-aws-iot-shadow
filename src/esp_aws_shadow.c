@@ -256,20 +256,12 @@ static void esp_aws_shadow_mqtt_data_delete_op(esp_aws_shadow_handle_t handle, e
     if (op_len == SHADOW_SUFFIX_ACCEPTED_LENGTH && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
     {
         // /delete/accepted
-        // TODO
-        // esp_err_t err = esp_aws_shadow_event_dispatch_delete_accepted(handle, event);
-        // if (err != ESP_OK)
-        // {
-        //     ESP_LOGE(TAG, "event AWS_SHADOW_EVENT_DELETE_ACCEPTED dispatch failed: %d", err);
-        // }
-    }
-    else if (op_len == SHADOW_SUFFIX_REJECTED_LENGTH && strncmp(op, SHADOW_SUFFIX_REJECTED, SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
-    {
-        // /delete/rejected
-        // TODO handle error
-        aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_ERROR);
-        // TODO data
-        esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
+        aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_DELETE_ACCEPTED);
+        esp_err_t err = esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "event AWS_SHADOW_EVENT_DELETE_ACCEPTED dispatch failed: %d", err);
+        }
     }
 }
 
