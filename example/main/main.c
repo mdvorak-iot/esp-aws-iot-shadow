@@ -114,7 +114,8 @@ static void shadow_event_handler(void *handler_args, esp_event_base_t event_base
 		{
 			// Handle incoming changes
 			shadow_updated(event->delta);
-			// Report they are processed (we can reuse delta object, if there are no extra reported values)
+			// Report they are processed
+			// Note: We can reuse delta object, but any extra reported values must be sent independently
 			esp_aws_shadow_request_update_reported(event->handle, event->delta, NULL);
 		}
 	}
@@ -178,20 +179,21 @@ static void setup()
 	ESP_LOGI(TAG, "started");
 }
 
-static void run()
+static _Noreturn void run()
 {
+	// Reuse allocated object every cycle, otherwise it would have to been deleted
+	cJSON *reported = cJSON_CreateObject();
+	cJSON *now_obj = cJSON_AddNumberToObject(reported, "now", 0);
+
 	for (;;)
 	{
-		vTaskDelay(5000 / portTICK_PERIOD_MS);
+		vTaskDelay(30000 / portTICK_PERIOD_MS);
 
-		// time_t now;
-		// time(&now);
+		time_t now;
+		time(&now);
 
-		// char buf[100];
-		// int c = snprintf(buf, 100, R"JSON({"state":{"reported":{"welcome":"%d"}}})JSON", (int)now);
-
-		// int msg_id = esp_mqtt_client_publish(mqtt_client, SHADOW_TOPIC_STRING_UPDATE(CONFIG_AWS_IOT_THING_NAME), buf, c, 1, 0);
-		// ESP_LOGI(TAG, "sent /update successful, msg_id=%d", msg_id);
+		cJSON_SetIntValue(now_obj, now);
+		esp_aws_shadow_request_update_reported(shadow_client, reported, NULL);
 	}
 }
 
