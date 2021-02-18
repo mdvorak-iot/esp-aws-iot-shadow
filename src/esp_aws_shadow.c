@@ -26,8 +26,9 @@ static const int SUBSCRIBED_UPDATE_ACCEPTED_BIT = BIT14;
 static const int SUBSCRIBED_UPDATE_REJECTED_BIT = BIT15;
 static const int SUBSCRIBED_UPDATE_DELTA_BIT = BIT16;
 static const int SUBSCRIBED_DELETE_ACCEPTED_BIT = BIT17;
+static const int SUBSCRIBED_DELETE_REJECTED_BIT = BIT18;
 
-static const int SUBSCRIBED_ALL_BITS = SUBSCRIBED_GET_ACCEPTED_BIT | SUBSCRIBED_GET_REJECTED_BIT | SUBSCRIBED_UPDATE_ACCEPTED_BIT | SUBSCRIBED_UPDATE_REJECTED_BIT | SUBSCRIBED_UPDATE_DELTA_BIT | SUBSCRIBED_DELETE_ACCEPTED_BIT;
+static const int SUBSCRIBED_ALL_BITS = SUBSCRIBED_GET_ACCEPTED_BIT | SUBSCRIBED_GET_REJECTED_BIT | SUBSCRIBED_UPDATE_ACCEPTED_BIT | SUBSCRIBED_UPDATE_REJECTED_BIT | SUBSCRIBED_UPDATE_DELTA_BIT | SUBSCRIBED_DELETE_ACCEPTED_BIT | SUBSCRIBED_DELETE_REJECTED_BIT;
 
 struct esp_aws_shadow_handle
 {
@@ -49,6 +50,7 @@ struct esp_aws_shadow_handle
         int update_rejected_msg_id;
         int update_delta_msg_id;
         int delete_accepted_msg_id;
+        int delete_rejected_msg_id;
     } topic_substriptions;
 };
 
@@ -128,7 +130,7 @@ static esp_err_t esp_aws_shadow_event_dispatch_error(esp_aws_shadow_handle_t han
 static void esp_aws_shadow_request_get(esp_aws_shadow_handle_t handle)
 {
     char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
-    if (esp_mqtt_client_publish(handle->client, esp_aws_shadow_topic_name(handle, SHADOW_OP_GET, topic_name, sizeof(topic_name)), "", 0, 1, 0) == -1)
+    if (esp_mqtt_client_publish(handle->client, esp_aws_shadow_topic_name(handle, SHADOW_OP_GET, topic_name, sizeof(topic_name)), NULL, 0, 1, 0) == -1)
     {
         ESP_LOGE(TAG, "failed to publish %s" SHADOW_OP_GET, handle->topic_prefix);
     }
@@ -149,6 +151,7 @@ static void esp_aws_shadow_mqtt_connected(esp_aws_shadow_handle_t handle, esp_mq
     handle->topic_substriptions.update_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_UPDATE SHADOW_SUFFIX_REJECTED), topic_name, sizeof(topic_name)), 0);
     handle->topic_substriptions.update_delta_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_UPDATE SHADOW_SUFFIX_DELTA), topic_name, sizeof(topic_name)), 0);
     handle->topic_substriptions.delete_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_DELETE SHADOW_SUFFIX_ACCEPTED), topic_name, sizeof(topic_name)), 0);
+    handle->topic_substriptions.delete_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_DELETE SHADOW_SUFFIX_REJECTED), topic_name, sizeof(topic_name)), 0);
 
     // Connected state
     xEventGroupSetBits(handle->event_group, CONNECTED_BIT);
@@ -196,6 +199,11 @@ static void esp_aws_shadow_mqtt_subscribed(esp_aws_shadow_handle_t handle, esp_m
     {
         ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_DELETE SHADOW_SUFFIX_ACCEPTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_DELETE_ACCEPTED_BIT);
+    }
+    else if (event->msg_id == handle->topic_substriptions.delete_rejected_msg_id)
+    {
+        ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_DELETE SHADOW_SUFFIX_REJECTED, handle->topic_prefix);
+        bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_DELETE_REJECTED_BIT);
     }
 
     // Ready?
@@ -284,6 +292,15 @@ static void esp_aws_shadow_mqtt_data_delete_op(esp_aws_shadow_handle_t handle, e
         {
             ESP_LOGE(TAG, "event AWS_SHADOW_EVENT_DELETE_ACCEPTED dispatch failed: %d", err);
         }
+    }
+    else if (op_len == SHADOW_SUFFIX_REJECTED_LENGTH && strncmp(op, SHADOW_SUFFIX_REJECTED, SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
+    {
+        // /delete/rejected
+        esp_err_t err = esp_aws_shadow_event_dispatch_error(handle, event);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "event AWS_SHADOW_EVENT_ERROR dispatch failed: %d", err);
+}
     }
 }
 
@@ -458,22 +475,42 @@ inline esp_err_t esp_aws_shadow_handler_register(esp_aws_shadow_handle_t handle,
 
 inline esp_err_t esp_aws_shadow_handler_instance_register(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id, esp_event_handler_t event_handler, void *event_handler_arg, esp_event_handler_instance_t *handler_ctx_arg)
 {
+    if (handle == NULL)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
     return esp_event_handler_instance_register_with(handle->event_loop, AWS_SHADOW_EVENT, event_id, event_handler, event_handler_arg, handler_ctx_arg);
 }
 
 inline esp_err_t esp_aws_shadow_handler_instance_unregister(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id, esp_event_handler_instance_t handler_ctx_arg)
 {
+    if (handle == NULL)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
     return esp_event_handler_instance_unregister_with(handle->event_loop, AWS_SHADOW_EVENT, event_id, handler_ctx_arg);
 }
 
 bool esp_aws_shadow_is_ready(esp_aws_shadow_handle_t handle)
 {
+    if (handle == NULL)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
     EventBits_t bits = xEventGroupGetBits(handle->event_group);
     return (bits & SUBSCRIBED_ALL_BITS) == SUBSCRIBED_ALL_BITS;
 }
 
 bool esp_aws_shadow_wait_for_ready(esp_aws_shadow_handle_t handle, TickType_t ticks_to_wait)
 {
+    if (handle == NULL)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
     EventBits_t bits = xEventGroupWaitBits(handle->event_group, SUBSCRIBED_ALL_BITS, pdFALSE, pdTRUE, ticks_to_wait);
     return (bits & SUBSCRIBED_ALL_BITS) == SUBSCRIBED_ALL_BITS;
 }
