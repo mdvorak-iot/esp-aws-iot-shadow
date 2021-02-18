@@ -1,4 +1,5 @@
 #include "esp_aws_shadow.h"
+#include "esp_aws_shadow_constants.h"
 #include <string.h>
 #include <esp_log.h>
 #include <esp_event.h>
@@ -16,27 +17,13 @@ ESP_EVENT_DEFINE_BASE(AWS_SHADOW_EVENT);
         .shadow_name = handle->shadow_name,                   \
     }
 
-/**
- * @brief The maximum length of Thing Name.
- */
-#define SHADOW_THINGNAME_LENGTH_MAX (128U)
-
-/**
- * @brief The maximum length of Shadow Name.
- */
-#define SHADOW_NAME_LENGTH_MAX (64U)
-/**
- * @brief The maximum length of a topic name.
- */
-#define SHADOW_TOPIC_MAX_LENGTH (256U)
-
 static const int CONNECTED_BIT = BIT0;
-static const int SUBSCRIBED_GET_ACCEPTED_BIT = BIT10;
-static const int SUBSCRIBED_GET_REJECTED_BIT = BIT11;
-static const int SUBSCRIBED_UPDATE_ACCEPTED_BIT = BIT12;
-static const int SUBSCRIBED_UPDATE_REJECTED_BIT = BIT13;
-static const int SUBSCRIBED_UPDATE_DELTA_BIT = BIT14;
-static const int SUBSCRIBED_UPDATE_DOCUMENTS_BIT = BIT15;
+static const int SUBSCRIBED_GET_ACCEPTED_BIT = BIT12;
+static const int SUBSCRIBED_GET_REJECTED_BIT = BIT13;
+static const int SUBSCRIBED_UPDATE_ACCEPTED_BIT = BIT14;
+static const int SUBSCRIBED_UPDATE_REJECTED_BIT = BIT15;
+static const int SUBSCRIBED_UPDATE_DELTA_BIT = BIT16;
+static const int SUBSCRIBED_UPDATE_DOCUMENTS_BIT = BIT17;
 
 static const int SUBSCRIBED_ALL_BITS = SUBSCRIBED_GET_ACCEPTED_BIT | SUBSCRIBED_GET_REJECTED_BIT | SUBSCRIBED_UPDATE_ACCEPTED_BIT | SUBSCRIBED_UPDATE_REJECTED_BIT | SUBSCRIBED_UPDATE_DELTA_BIT | SUBSCRIBED_UPDATE_DOCUMENTS_BIT;
 
@@ -117,32 +104,32 @@ static void esp_aws_shadow_mqtt_subscribed(esp_mqtt_event_handle_t event, esp_aw
 
     if (event->msg_id == handle->topic_substriptions.get_accepted_msg_id)
     {
-        ESP_LOGI(TAG, "subscribed to %s/get/accepted", handle->topic_prefix);
+        ESP_LOGI(TAG, "subscribed to %s" SHADOW_OP_GET SHADOW_SUFFIX_ACCEPTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_GET_ACCEPTED_BIT);
     }
     else if (event->msg_id == handle->topic_substriptions.get_rejected_msg_id)
     {
-        ESP_LOGI(TAG, "subscribed to %s/get/rejected", handle->topic_prefix);
+        ESP_LOGI(TAG, "subscribed to %s" SHADOW_OP_GET SHADOW_SUFFIX_REJECTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_GET_REJECTED_BIT);
     }
     else if (event->msg_id == handle->topic_substriptions.update_accepted_msg_id)
     {
-        ESP_LOGI(TAG, "subscribed to %s/update/accepted", handle->topic_prefix);
+        ESP_LOGI(TAG, "subscribed to %s" SHADOW_OP_UPDATE SHADOW_SUFFIX_ACCEPTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_ACCEPTED_BIT);
     }
     else if (event->msg_id == handle->topic_substriptions.update_rejected_msg_id)
     {
-        ESP_LOGI(TAG, "subscribed to %s/update/rejected", handle->topic_prefix);
+        ESP_LOGI(TAG, "subscribed to %s" SHADOW_OP_UPDATE SHADOW_SUFFIX_REJECTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_REJECTED_BIT);
     }
     else if (event->msg_id == handle->topic_substriptions.update_delta_msg_id)
     {
-        ESP_LOGI(TAG, "subscribed to %s/update/delta", handle->topic_prefix);
+        ESP_LOGI(TAG, "subscribed to %s" SHADOW_OP_UPDATE SHADOW_SUFFIX_DELTA, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_DELTA_BIT);
     }
     else if (event->msg_id == handle->topic_substriptions.update_documents_msg_id)
     {
-        ESP_LOGI(TAG, "subscribed to %s/update/documents", handle->topic_prefix);
+        ESP_LOGI(TAG, "subscribed to %s" SHADOW_OP_UPDATE SHADOW_SUFFIX_DOCUMENT, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_DOCUMENTS_BIT);
     }
 
@@ -156,9 +143,9 @@ static void esp_aws_shadow_mqtt_subscribed(esp_mqtt_event_handle_t event, esp_aw
 
         // Request data
         char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
-        if (esp_mqtt_client_publish(handle->client, esp_aws_shadow_topic_name(handle, "/get", topic_name, sizeof(topic_name)), "", 0, 1, 0) == -1)
+        if (esp_mqtt_client_publish(handle->client, esp_aws_shadow_topic_name(handle, SHADOW_OP_GET, topic_name, sizeof(topic_name)), "", 0, 1, 0) == -1)
         {
-            ESP_LOGE(TAG, "failed to publish %s/get", handle->topic_prefix);
+            ESP_LOGE(TAG, "failed to publish %s" SHADOW_OP_GET, handle->topic_prefix);
         }
     }
 }
@@ -174,47 +161,47 @@ static void esp_aws_shadow_mqtt_data(esp_mqtt_event_handle_t event, esp_aws_shad
 
         ESP_LOGI(TAG, "%s action %.*s", handle->topic_prefix, action_len, action);
 
-        if (action_len >= strlen("/get") && strncmp(action, "/get", strlen("/get")) == 0)
+        if (action_len >= SHADOW_OP_GET_LENGTH && strncmp(action, SHADOW_OP_GET, SHADOW_OP_GET_LENGTH) == 0)
         {
             // Get
-            const char *op = action + strlen("/get");
-            size_t op_len = action_len - strlen("/get");
+            const char *op = action + SHADOW_OP_GET_LENGTH;
+            size_t op_len = action_len - SHADOW_OP_GET_LENGTH;
 
-            if (op_len == strlen("/accepted") && strncmp(op, "/accepted", strlen("/accepted")) == 0)
+            if (op_len == SHADOW_SUFFIX_ACCEPTED_LENGTH && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
             {
                 // /get/accepted
                 aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_DESIRED_STATE);
                 // TODO data
                 esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
             }
-            else if (op_len == strlen("/rejected") && strncmp(op, "/rejected", strlen("/rejected")) == 0)
+            else if (op_len == SHADOW_SUFFIX_REJECTED_LENGTH && strncmp(op, SHADOW_SUFFIX_REJECTED, SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
             {
                 // /get/rejected
                 // TODO handle error
             }
         }
-        else if (action_len >= strlen("/update") && strncmp(action, "/update", strlen("/update")) == 0)
+        else if (action_len >= SHADOW_OP_UPDATE_LENGTH && strncmp(action, SHADOW_OP_UPDATE, SHADOW_OP_UPDATE_LENGTH) == 0)
         {
             // Update
-            const char *op = action + strlen("/update");
-            size_t op_len = action_len - strlen("/update");
+            const char *op = action + SHADOW_OP_UPDATE_LENGTH;
+            size_t op_len = action_len - SHADOW_OP_UPDATE_LENGTH;
 
-            if (op_len == strlen("/accepted") && strncmp(op, "/accepted", strlen("/accepted")) == 0)
+            if (op_len == SHADOW_SUFFIX_ACCEPTED_LENGTH && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
             {
                 // /update/accepted
                 // TODO
             }
-            else if (op_len == strlen("/rejected") && strncmp(op, "/rejected", strlen("/rejected")) == 0)
+            else if (op_len == SHADOW_SUFFIX_REJECTED_LENGTH && strncmp(op, SHADOW_SUFFIX_REJECTED, SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
             {
                 // /update/rejected
                 // TODO handle error
             }
-            else if (op_len == strlen("/delta") && strncmp(op, "/delta", strlen("/delta")) == 0)
+            else if (op_len == SHADOW_SUFFIX_DELTA_LENGTH && strncmp(op, SHADOW_SUFFIX_DELTA, SHADOW_SUFFIX_DELTA_LENGTH) == 0)
             {
                 // /update/delta
                 // TODO
             }
-            else if (op_len == strlen("/document") && strncmp(op, "/document", strlen("/document")) == 0)
+            else if (op_len == SHADOW_SUFFIX_DOCUMENT_LENGTH && strncmp(op, SHADOW_SUFFIX_DOCUMENT, SHADOW_SUFFIX_DOCUMENT_LENGTH) == 0)
             {
                 // /update/document
                 aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_DESIRED_STATE);
@@ -329,13 +316,13 @@ esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing
     if (shadow_name == NULL)
     {
         // Classic
-        snprintf(result->topic_prefix, sizeof(result->topic_prefix), "$aws/things/%s/shadow", thing_name);
+        snprintf(result->topic_prefix, sizeof(result->topic_prefix), SHADOW_PREFIX_CLASSIC_FORMAT, thing_name);
     }
     else
     {
         // Named
         strcpy(result->shadow_name, shadow_name);
-        snprintf(result->topic_prefix, sizeof(result->topic_prefix), "$aws/things/%s/shadow/name/%s", thing_name, shadow_name);
+        snprintf(result->topic_prefix, sizeof(result->topic_prefix), SHADOW_PREFIX_NAMED_FORMAT, thing_name, shadow_name);
     }
 
     result->topic_prefix_len = strlen(result->topic_prefix);
