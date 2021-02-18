@@ -75,6 +75,8 @@ static void setup()
 	ESP_ERROR_CHECK(esp_wifi_start());
 	ESP_ERROR_CHECK(wifi_reconnect_start());
 
+	// NOTE this assumes we have WiFi already stored in NVS
+
 	// Connect
 	wifi_reconnect_resume();
 	if (!wifi_reconnect_wait_for_connection(15000))

@@ -153,6 +153,13 @@ static void esp_aws_shadow_mqtt_subscribed(esp_mqtt_event_handle_t event, esp_aw
 
         aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_READY);
         esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
+
+        // Request data
+        char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
+        if (esp_mqtt_client_publish(handle->client, esp_aws_shadow_topic_name(handle, "/get", topic_name, sizeof(topic_name)), "", 0, 1, 0) == -1)
+        {
+            ESP_LOGE(TAG, "failed to publish %s/get", handle->topic_prefix);
+        }
     }
 }
 
@@ -164,6 +171,55 @@ static void esp_aws_shadow_mqtt_data(esp_mqtt_event_handle_t event, esp_aws_shad
         size_t action_len = event->topic_len - handle->topic_prefix_len;
 
         ESP_LOGI(TAG, "%s action %.*s", handle->topic_prefix, action_len, action);
+
+        if (action_len >= strlen("/get") && strncmp(action, "/get", strlen("/get")) == 0)
+        {
+            // Get
+            const char *op = action + strlen("/get");
+            size_t op_len = action_len - strlen("/get");
+
+            if (op_len == strlen("/accepted") && strncmp(op, "/accepted", strlen("/accepted")) == 0)
+            {
+                // /get/accepted
+                aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_DESIRED_STATE);
+                // TODO data
+                esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
+            }
+            else if (op_len == strlen("/rejected") && strncmp(op, "/rejected", strlen("/rejected")) == 0)
+            {
+                // /get/rejected
+                // TODO handle error
+            }
+        }
+        else if (action_len >= strlen("/update") && strncmp(action, "/update", strlen("/update")) == 0)
+        {
+            // Update
+            const char *op = action + strlen("/update");
+            size_t op_len = action_len - strlen("/update");
+
+            if (op_len == strlen("/accepted") && strncmp(op, "/accepted", strlen("/accepted")) == 0)
+            {
+                // /update/accepted
+                // TODO
+            }
+            else if (op_len == strlen("/rejected") && strncmp(op, "/rejected", strlen("/rejected")) == 0)
+            {
+                // /update/rejected
+                // TODO handle error
+            }
+            else if (op_len == strlen("/delta") && strncmp(op, "/delta", strlen("/delta")) == 0)
+            {
+                // /update/delta
+                // TODO
+            }
+            else if (op_len == strlen("/document") && strncmp(op, "/document", strlen("/document")) == 0)
+            {
+                // /update/document
+                aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_DESIRED_STATE);
+                // TODO data
+                esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
+            }
+        }
     }
 }
 
