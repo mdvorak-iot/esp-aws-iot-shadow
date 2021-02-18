@@ -113,32 +113,32 @@ static void esp_aws_shadow_mqtt_subscribed(esp_aws_shadow_handle_t handle, esp_m
 
     if (event->msg_id == handle->topic_substriptions.get_accepted_msg_id)
     {
-        ESP_LOGI(TAG, "subscribed to %s" SHADOW_OP_GET SHADOW_SUFFIX_ACCEPTED, handle->topic_prefix);
+        ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_GET SHADOW_SUFFIX_ACCEPTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_GET_ACCEPTED_BIT);
     }
     else if (event->msg_id == handle->topic_substriptions.get_rejected_msg_id)
     {
-        ESP_LOGI(TAG, "subscribed to %s" SHADOW_OP_GET SHADOW_SUFFIX_REJECTED, handle->topic_prefix);
+        ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_GET SHADOW_SUFFIX_REJECTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_GET_REJECTED_BIT);
     }
     else if (event->msg_id == handle->topic_substriptions.update_accepted_msg_id)
     {
-        ESP_LOGI(TAG, "subscribed to %s" SHADOW_OP_UPDATE SHADOW_SUFFIX_ACCEPTED, handle->topic_prefix);
+        ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_UPDATE SHADOW_SUFFIX_ACCEPTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_ACCEPTED_BIT);
     }
     else if (event->msg_id == handle->topic_substriptions.update_rejected_msg_id)
     {
-        ESP_LOGI(TAG, "subscribed to %s" SHADOW_OP_UPDATE SHADOW_SUFFIX_REJECTED, handle->topic_prefix);
+        ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_UPDATE SHADOW_SUFFIX_REJECTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_REJECTED_BIT);
     }
     else if (event->msg_id == handle->topic_substriptions.update_delta_msg_id)
     {
-        ESP_LOGI(TAG, "subscribed to %s" SHADOW_OP_UPDATE SHADOW_SUFFIX_DELTA, handle->topic_prefix);
+        ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_UPDATE SHADOW_SUFFIX_DELTA, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_DELTA_BIT);
     }
     else if (event->msg_id == handle->topic_substriptions.update_documents_msg_id)
     {
-        ESP_LOGI(TAG, "subscribed to %s" SHADOW_OP_UPDATE SHADOW_SUFFIX_DOCUMENT, handle->topic_prefix);
+        ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_UPDATE SHADOW_SUFFIX_DOCUMENT, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_DOCUMENTS_BIT);
     }
 
@@ -325,6 +325,7 @@ esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing
     esp_err_t err = esp_event_loop_create(&event_loop_args, &result->event_loop);
     if (err != ESP_OK)
     {
+        ESP_LOGE(TAG, "failed to create event loop: %d", err);
         esp_aws_shadow_delete(result);
         return err;
     }
@@ -355,6 +356,7 @@ esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing
     err = esp_mqtt_client_register_event(client, MQTT_EVENT_ANY, esp_aws_shadow_mqtt_handler, result);
     if (err != ESP_OK)
     {
+        ESP_LOGE(TAG, "failed to register mqtt event handler: %d", err);
         esp_aws_shadow_delete(result);
         return err;
     }
@@ -392,17 +394,17 @@ esp_err_t esp_aws_shadow_delete(esp_aws_shadow_handle_t handle)
     return ESP_OK;
 }
 
-esp_err_t esp_aws_shadow_handler_register(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id, esp_event_handler_t event_handler, void *event_handler_arg)
+inline esp_err_t esp_aws_shadow_handler_register(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id, esp_event_handler_t event_handler, void *event_handler_arg)
 {
     return esp_aws_shadow_handler_instance_register(handle, event_id, event_handler, event_handler_arg, NULL);
 }
 
-esp_err_t esp_aws_shadow_handler_instance_register(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id, esp_event_handler_t event_handler, void *event_handler_arg, esp_event_handler_instance_t *handler_ctx_arg)
+inline esp_err_t esp_aws_shadow_handler_instance_register(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id, esp_event_handler_t event_handler, void *event_handler_arg, esp_event_handler_instance_t *handler_ctx_arg)
 {
     return esp_event_handler_instance_register_with(handle->event_loop, AWS_SHADOW_EVENT, event_id, event_handler, event_handler_arg, handler_ctx_arg);
 }
 
-esp_err_t esp_aws_shadow_handler_instance_unregister(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id, esp_event_handler_instance_t handler_ctx_arg)
+inline esp_err_t esp_aws_shadow_handler_instance_unregister(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id, esp_event_handler_instance_t handler_ctx_arg)
 {
     return esp_event_handler_instance_unregister_with(handle->event_loop, AWS_SHADOW_EVENT, event_id, handler_ctx_arg);
 }
