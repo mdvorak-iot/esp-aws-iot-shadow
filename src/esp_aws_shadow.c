@@ -1,9 +1,11 @@
 #include "esp_aws_shadow.h"
 #include "esp_aws_shadow_constants.h"
+#include "esp_aws_shadow_json.h"
 #include <string.h>
 #include <esp_log.h>
 #include <esp_event.h>
 #include <freertos/event_groups.h>
+#include <cJSON.h>
 
 static const char TAG[] = "esp_aws_shadow";
 
@@ -57,7 +59,7 @@ inline static char *esp_aws_shadow_topic_name(esp_aws_shadow_handle_t handle, co
     return topic_buf;
 }
 
-static esp_err_t esp_aws_shadow_dispatch_event(esp_event_loop_handle_t event_loop, aws_shadow_event_data_t *event)
+static esp_err_t esp_aws_shadow_event_dispatch(esp_event_loop_handle_t event_loop, aws_shadow_event_data_t *event)
 {
     esp_err_t err = esp_event_post_to(event_loop, AWS_SHADOW_EVENT, event->event_id, event, sizeof(*event), portMAX_DELAY);
     if (err != ESP_OK)
@@ -67,6 +69,23 @@ static esp_err_t esp_aws_shadow_dispatch_event(esp_event_loop_handle_t event_loo
     }
 
     return esp_event_loop_run(event_loop, 0);
+}
+
+static esp_err_t esp_aws_shadow_event_dispatch_state_accepted(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
+{
+    aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_STATE);
+
+    // Parse and publish data (delete after dispatch)
+    cJSON *root = esp_aws_shadow_parse_response_accepted(event->data, event->data_len, &shadow_event);
+    if (root == NULL)
+    {
+        ESP_LOGW(TAG, "failed to parse json document");
+    }
+
+    esp_err_t err = esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
+    cJSON_Delete(root);
+
+    return err;
 }
 
 static void esp_aws_shadow_request_get(esp_aws_shadow_handle_t handle)
@@ -104,7 +123,7 @@ static void esp_aws_shadow_mqtt_disconnected(esp_aws_shadow_handle_t handle, esp
     xEventGroupClearBits(handle->event_group, CONNECTED_BIT | SUBSCRIBED_ALL_BITS);
 
     aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_DISCONNECTED);
-    esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
+    esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
 }
 
 static void esp_aws_shadow_mqtt_subscribed(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
@@ -148,7 +167,7 @@ static void esp_aws_shadow_mqtt_subscribed(esp_aws_shadow_handle_t handle, esp_m
         ESP_LOGI(TAG, "%s is ready", handle->topic_prefix);
 
         aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_READY);
-        esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
+        esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
 
         // Request data
         esp_aws_shadow_request_get(handle);
@@ -163,9 +182,11 @@ static void esp_aws_shadow_mqtt_data_get_op(esp_aws_shadow_handle_t handle, esp_
     if (op_len == SHADOW_SUFFIX_ACCEPTED_LENGTH && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
     {
         // /get/accepted
-        aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_DESIRED_STATE);
-        // TODO data
-        esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
+        esp_err_t err = esp_aws_shadow_event_dispatch_state_accepted(handle, event);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "event AWS_SHADOW_EVENT_STATE dispatch failed: %d", err);
+        }
     }
     else if (op_len == SHADOW_SUFFIX_REJECTED_LENGTH && strncmp(op, SHADOW_SUFFIX_REJECTED, SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
     {
@@ -173,7 +194,7 @@ static void esp_aws_shadow_mqtt_data_get_op(esp_aws_shadow_handle_t handle, esp_
         // TODO handle error
         aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_ERROR);
         // TODO data
-        esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
+        esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
     }
 }
 
@@ -185,7 +206,11 @@ static void esp_aws_shadow_mqtt_data_update_op(esp_aws_shadow_handle_t handle, e
     if (op_len == SHADOW_SUFFIX_ACCEPTED_LENGTH && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
     {
         // /update/accepted
-        // TODO
+        esp_err_t err = esp_aws_shadow_event_dispatch_state_accepted(handle, event);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "event AWS_SHADOW_EVENT_STATE dispatch failed: %d", err);
+        }
     }
     else if (op_len == SHADOW_SUFFIX_REJECTED_LENGTH && strncmp(op, SHADOW_SUFFIX_REJECTED, SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
     {
@@ -193,7 +218,7 @@ static void esp_aws_shadow_mqtt_data_update_op(esp_aws_shadow_handle_t handle, e
         // TODO handle error
         aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_ERROR);
         // TODO data
-        esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
+        esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
     }
     else if (op_len == SHADOW_SUFFIX_DELTA_LENGTH && strncmp(op, SHADOW_SUFFIX_DELTA, SHADOW_SUFFIX_DELTA_LENGTH) == 0)
     {
@@ -202,10 +227,14 @@ static void esp_aws_shadow_mqtt_data_update_op(esp_aws_shadow_handle_t handle, e
     }
     else if (op_len == SHADOW_SUFFIX_DOCUMENT_LENGTH && strncmp(op, SHADOW_SUFFIX_DOCUMENT, SHADOW_SUFFIX_DOCUMENT_LENGTH) == 0)
     {
+        // TODO
         // /update/document
-        aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_DESIRED_STATE);
-        // TODO data
-        esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
+        //aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_STATE);
+
+        // Parse and publish data (delete after dispatch)
+        // cJSON *root = esp_aws_shadow_parse_response_document(event->data, event->data_len, &shadow_event);
+        // esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
+        // cJSON_Delete(root);
     }
 }
 

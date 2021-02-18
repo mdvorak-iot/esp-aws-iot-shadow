@@ -54,6 +54,12 @@ static void shadow_event_handler(void *handler_args, esp_event_base_t base, int3
 {
 	aws_shadow_event_data_t *event = (aws_shadow_event_data_t *)event_data;
 	ESP_LOGI(TAG, "received shadow event %d for %s", event_id, event->thing_name);
+
+	if (event->event_id == AWS_SHADOW_EVENT_STATE)
+	{
+		const char *welcome = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(event->desired, "welcome"));
+		ESP_LOGI(TAG, "desired welcome='%s'", welcome ? welcome : "");
+	}
 }
 
 static void setup()
