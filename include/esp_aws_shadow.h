@@ -60,9 +60,13 @@ extern "C"
 
 	bool esp_aws_shadow_wait_for_ready(esp_aws_shadow_handle_t handle, TickType_t ticks_to_wait);
 
-	esp_err_t esp_aws_shadow_state_update(esp_aws_shadow_handle_t handle, const cJSON *root);
+	esp_err_t esp_aws_shadow_request_update(esp_aws_shadow_handle_t handle, const cJSON *root);
 
-	esp_err_t esp_aws_shadow_state_delete(esp_aws_shadow_handle_t handle);
+	esp_err_t esp_aws_shadow_request_update_reported(esp_aws_shadow_handle_t handle, const cJSON *reported, const char *client_token);
+
+	esp_err_t esp_aws_shadow_request_update_desired(esp_aws_shadow_handle_t handle, const cJSON *desired, const char *client_token);
+
+	esp_err_t esp_aws_shadow_request_delete(esp_aws_shadow_handle_t handle);
 
 #ifdef __cplusplus
 }

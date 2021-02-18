@@ -515,7 +515,19 @@ bool esp_aws_shadow_wait_for_ready(esp_aws_shadow_handle_t handle, TickType_t ti
     return (bits & SUBSCRIBED_ALL_BITS) == SUBSCRIBED_ALL_BITS;
 }
 
-esp_err_t esp_aws_shadow_state_update(esp_aws_shadow_handle_t handle, const cJSON *root)
+esp_err_t esp_aws_shadow_request_delete(esp_aws_shadow_handle_t handle)
+{
+    if (handle == NULL)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
+    int msg_id = esp_mqtt_client_publish(handle->client, esp_aws_shadow_topic_name(handle, SHADOW_OP_DELETE, topic_name, sizeof(topic_name)), NULL, 0, 1, 0);
+    return msg_id != -1 ? ESP_OK : ESP_FAIL;
+}
+
+esp_err_t esp_aws_shadow_request_update(esp_aws_shadow_handle_t handle, const cJSON *root)
 {
     if (handle == NULL || root == NULL)
     {
@@ -531,14 +543,44 @@ esp_err_t esp_aws_shadow_state_update(esp_aws_shadow_handle_t handle, const cJSO
     return msg_id != -1 ? ESP_OK : ESP_FAIL;
 }
 
-esp_err_t esp_aws_shadow_state_delete(esp_aws_shadow_handle_t handle)
+esp_err_t esp_aws_shadow_request_update_reported(esp_aws_shadow_handle_t handle, const cJSON *reported, const char *client_token)
 {
-    if (handle == NULL)
+    if (handle == NULL || reported == NULL)
     {
         return ESP_ERR_INVALID_ARG;
     }
 
-    char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
-    int msg_id = esp_mqtt_client_publish(handle->client, esp_aws_shadow_topic_name(handle, SHADOW_OP_DELETE, topic_name, sizeof(topic_name)), NULL, 0, 1, 0);
-    return msg_id != -1 ? ESP_OK : ESP_FAIL;
+    cJSON *root = cJSON_CreateObject();
+    cJSON *state = cJSON_AddObjectToObject(root, "state");
+    cJSON_AddItemReferenceToObject(state, "reported", (cJSON *)reported); // Note: function is just missing const in declaration
+
+    if (client_token != NULL)
+    {
+        cJSON_AddStringToObject(root, "clientToken", client_token);
+    }
+
+    esp_err_t err = esp_aws_shadow_request_update(handle, root);
+    cJSON_Delete(root); // Note: This does not release input json object
+    return err;
+}
+
+esp_err_t esp_aws_shadow_request_update_desired(esp_aws_shadow_handle_t handle, const cJSON *desired, const char *client_token)
+{
+    if (handle == NULL || desired == NULL)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    cJSON *root = cJSON_CreateObject();
+    cJSON *state = cJSON_AddObjectToObject(root, "state");
+    cJSON_AddItemReferenceToObject(state, "desired", (cJSON *)desired); // Note: function is just missing const in declaration
+
+    if (client_token != NULL)
+    {
+        cJSON_AddStringToObject(root, "clientToken", client_token);
+    }
+
+    esp_err_t err = esp_aws_shadow_request_update(handle, root);
+    cJSON_Delete(root); // Note: This does not release input json object
+    return err;
 }
