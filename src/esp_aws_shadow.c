@@ -69,6 +69,15 @@ static esp_err_t esp_aws_shadow_dispatch_event(esp_event_loop_handle_t event_loo
     return esp_event_loop_run(event_loop, 0);
 }
 
+static void esp_aws_shadow_request_get(esp_aws_shadow_handle_t handle)
+{
+    char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
+    if (esp_mqtt_client_publish(handle->client, esp_aws_shadow_topic_name(handle, SHADOW_OP_GET, topic_name, sizeof(topic_name)), "", 0, 1, 0) == -1)
+    {
+        ESP_LOGE(TAG, "failed to publish %s" SHADOW_OP_GET, handle->topic_prefix);
+    }
+}
+
 static void esp_aws_shadow_mqtt_connected(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
 {
     // Reset tracking
@@ -142,11 +151,7 @@ static void esp_aws_shadow_mqtt_subscribed(esp_aws_shadow_handle_t handle, esp_m
         esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
 
         // Request data
-        char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
-        if (esp_mqtt_client_publish(handle->client, esp_aws_shadow_topic_name(handle, SHADOW_OP_GET, topic_name, sizeof(topic_name)), "", 0, 1, 0) == -1)
-        {
-            ESP_LOGE(TAG, "failed to publish %s" SHADOW_OP_GET, handle->topic_prefix);
-        }
+        esp_aws_shadow_request_get(handle);
     }
 }
 
@@ -166,6 +171,9 @@ static void esp_aws_shadow_mqtt_data_get_op(esp_aws_shadow_handle_t handle, esp_
     {
         // /get/rejected
         // TODO handle error
+        aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_ERROR);
+        // TODO data
+        esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
     }
 }
 
@@ -183,6 +191,9 @@ static void esp_aws_shadow_mqtt_data_update_op(esp_aws_shadow_handle_t handle, e
     {
         // /update/rejected
         // TODO handle error
+        aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_ERROR);
+        // TODO data
+        esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
     }
     else if (op_len == SHADOW_SUFFIX_DELTA_LENGTH && strncmp(op, SHADOW_SUFFIX_DELTA, SHADOW_SUFFIX_DELTA_LENGTH) == 0)
     {
@@ -211,12 +222,12 @@ static void esp_aws_shadow_mqtt_data(esp_aws_shadow_handle_t handle, esp_mqtt_ev
 
         if (action_len >= SHADOW_OP_GET_LENGTH && strncmp(action, SHADOW_OP_GET, SHADOW_OP_GET_LENGTH) == 0)
         {
-            // Get
+            // Get operation
             esp_aws_shadow_mqtt_data_get_op(handle, event, action, action_len);
         }
         else if (action_len >= SHADOW_OP_UPDATE_LENGTH && strncmp(action, SHADOW_OP_UPDATE, SHADOW_OP_UPDATE_LENGTH) == 0)
         {
-            // Update
+            // Update operation
             esp_aws_shadow_mqtt_data_update_op(handle, event, action, action_len);
         }
     }

@@ -17,6 +17,7 @@ extern "C"
 	{
 		AWS_SHADOW_EVENT_READY,			/** Connected and initialized */
 		AWS_SHADOW_EVENT_DISCONNECTED,	/** Disconnected from the server */
+		AWS_SHADOW_EVENT_ERROR,			/** Received error to an action */
 		AWS_SHADOW_EVENT_DESIRED_STATE, /** Received updated desired state */
 		AWS_SHADOW_EVENT_MAX,			/** Invalid event ID */
 	} aws_shadow_event_t;
