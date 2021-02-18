@@ -19,8 +19,6 @@ static cJSON *esp_aws_shadow_parse_json(const char *data, size_t data_len)
 cJSON *esp_aws_shadow_parse_update_accepted(const char *data, size_t data_len, aws_shadow_event_data_t *output)
 {
     cJSON *root = esp_aws_shadow_parse_json(data, data_len);
-    output->root = root;
-
     cJSON *state = cJSON_GetObjectItemCaseSensitive(root, "state");
     if (state != NULL)
     {
@@ -35,10 +33,17 @@ cJSON *esp_aws_shadow_parse_update_accepted(const char *data, size_t data_len, a
 cJSON *esp_aws_shadow_parse_update_delta(const char *data, size_t data_len, aws_shadow_event_data_t *output)
 {
     cJSON *root = esp_aws_shadow_parse_json(data, data_len);
-    output->root = root;
-
     // Note: delta document have attributes directly under state attribute
     output->delta = cJSON_GetObjectItemCaseSensitive(root, "state");
+    return root;
+}
+
+cJSON *esp_aws_shadow_parse_error(const char *data, size_t data_len, aws_shadow_event_error_t *error)
+{
+    cJSON *root = esp_aws_shadow_parse_json(data, data_len);
+    
+    error->code = cJSON_GetObjectItemCaseSensitive(root, "code")->valueint;
+    error->message = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, "message"));
 
     return root;
 }

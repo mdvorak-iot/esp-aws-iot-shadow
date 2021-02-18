@@ -12,6 +12,8 @@ extern "C"
 
     cJSON *esp_aws_shadow_parse_update_delta(const char *data, size_t data_len, aws_shadow_event_data_t *output);
 
+    cJSON *esp_aws_shadow_parse_error(const char *data, size_t data_len, aws_shadow_event_error_t *output);
+
 #ifdef __cplusplus
 }
 #endif

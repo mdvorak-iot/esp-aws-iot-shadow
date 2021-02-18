@@ -28,6 +28,12 @@ extern "C"
 
 	typedef struct
 	{
+		int code;
+		const char *message;
+	} aws_shadow_event_error_t;
+
+	typedef struct
+	{
 		aws_shadow_event_t event_id;
 		esp_aws_shadow_handle_t handle;
 		const char *thing_name;
@@ -36,6 +42,7 @@ extern "C"
 		const cJSON *desired;
 		const cJSON *reported;
 		const cJSON *delta;
+		const aws_shadow_event_error_t *error;
 	} aws_shadow_event_data_t;
 
 	esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing_name, const char *shadow_name, esp_aws_shadow_handle_t *handle);
