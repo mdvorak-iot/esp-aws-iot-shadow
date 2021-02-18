@@ -300,7 +300,7 @@ static void esp_aws_shadow_mqtt_data_delete_op(esp_aws_shadow_handle_t handle, e
         if (err != ESP_OK)
         {
             ESP_LOGE(TAG, "event AWS_SHADOW_EVENT_ERROR dispatch failed: %d", err);
-}
+        }
     }
 }
 
@@ -513,4 +513,32 @@ bool esp_aws_shadow_wait_for_ready(esp_aws_shadow_handle_t handle, TickType_t ti
 
     EventBits_t bits = xEventGroupWaitBits(handle->event_group, SUBSCRIBED_ALL_BITS, pdFALSE, pdTRUE, ticks_to_wait);
     return (bits & SUBSCRIBED_ALL_BITS) == SUBSCRIBED_ALL_BITS;
+}
+
+esp_err_t esp_aws_shadow_state_update(esp_aws_shadow_handle_t handle, const cJSON *root)
+{
+    if (handle == NULL || root == NULL)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    char *json = cJSON_PrintUnformatted(root);
+    char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
+
+    int msg_id = esp_mqtt_client_publish(handle->client, esp_aws_shadow_topic_name(handle, SHADOW_OP_UPDATE, topic_name, sizeof(topic_name)), json, 0, 1, 0);
+    free(json);
+
+    return msg_id != -1 ? ESP_OK : ESP_FAIL;
+}
+
+esp_err_t esp_aws_shadow_state_delete(esp_aws_shadow_handle_t handle)
+{
+    if (handle == NULL)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
+    int msg_id = esp_mqtt_client_publish(handle->client, esp_aws_shadow_topic_name(handle, SHADOW_OP_DELETE, topic_name, sizeof(topic_name)), NULL, 0, 1, 0);
+    return msg_id != -1 ? ESP_OK : ESP_FAIL;
 }

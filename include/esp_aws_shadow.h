@@ -60,6 +60,10 @@ extern "C"
 
 	bool esp_aws_shadow_wait_for_ready(esp_aws_shadow_handle_t handle, TickType_t ticks_to_wait);
 
+	esp_err_t esp_aws_shadow_state_update(esp_aws_shadow_handle_t handle, const cJSON *root);
+
+	esp_err_t esp_aws_shadow_state_delete(esp_aws_shadow_handle_t handle);
+
 #ifdef __cplusplus
 }
 #endif
