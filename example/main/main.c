@@ -89,15 +89,34 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t event_base, 
 	}
 }
 
+static void shadow_updated(const cJSON *state)
+{
+	const char *welcome = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(state, "welcome"));
+	if (welcome)
+	{
+		ESP_LOGI(TAG, "got welcome='%s'", welcome);
+	}
+}
+
 static void shadow_event_handler(void *handler_args, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
 	aws_shadow_event_data_t *event = (aws_shadow_event_data_t *)event_data;
 	ESP_LOGI(TAG, "received shadow event %d for %s", event_id, event->thing_name);
 
-	if (event->event_id == AWS_SHADOW_EVENT_UPDATE_ACCEPTED)
+	if (event->event_id == AWS_SHADOW_EVENT_UPDATE_ACCEPTED || event->event_id == AWS_SHADOW_EVENT_UPDATE_DELTA)
 	{
-		const char *welcome = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(event->desired, "welcome"));
-		ESP_LOGI(TAG, "desired welcome='%s'", welcome ? welcome : "");
+		if (event->desired)
+		{
+			// Handle incoming changes
+			shadow_updated(event->desired);
+		}
+		if (event->delta)
+		{
+			// Handle incoming changes
+			shadow_updated(event->delta);
+			// Report they are processed (we can reuse delta object)
+			esp_aws_shadow_request_update_reported(event->handle, event->delta, NULL);
+		}
 	}
 	else if (event->event_id == AWS_SHADOW_EVENT_ERROR)
 	{
