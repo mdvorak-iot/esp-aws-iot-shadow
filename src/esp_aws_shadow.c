@@ -165,6 +165,8 @@ static void esp_aws_shadow_mqtt_subscribed(esp_mqtt_event_handle_t event, esp_aw
 
 static void esp_aws_shadow_mqtt_data(esp_mqtt_event_handle_t event, esp_aws_shadow_handle_t handle)
 {
+    // See https://docs.aws.amazon.com/iot/latest/developerguide/device-shadow-document.html#device-shadow-example-response-json
+
     if (event->topic_len > handle->topic_prefix_len && strncmp(event->topic, handle->topic_prefix, handle->topic_prefix_len) == 0)
     {
         const char *action = event->topic + handle->topic_prefix_len;
