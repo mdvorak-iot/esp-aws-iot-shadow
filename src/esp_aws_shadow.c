@@ -69,7 +69,7 @@ static esp_err_t esp_aws_shadow_dispatch_event(esp_event_loop_handle_t event_loo
     return esp_event_loop_run(event_loop, 0);
 }
 
-static void esp_aws_shadow_mqtt_connected(esp_mqtt_event_handle_t event, esp_aws_shadow_handle_t handle)
+static void esp_aws_shadow_mqtt_connected(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
 {
     // Reset tracking
     xEventGroupClearBits(handle->event_group, SUBSCRIBED_ALL_BITS);
@@ -90,7 +90,7 @@ static void esp_aws_shadow_mqtt_connected(esp_mqtt_event_handle_t event, esp_aws
     ESP_LOGI(TAG, "%s connected to mqtt server", handle->topic_prefix);
 }
 
-static void esp_aws_shadow_mqtt_disconnected(esp_mqtt_event_handle_t event, esp_aws_shadow_handle_t handle)
+static void esp_aws_shadow_mqtt_disconnected(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
 {
     xEventGroupClearBits(handle->event_group, CONNECTED_BIT | SUBSCRIBED_ALL_BITS);
 
@@ -98,7 +98,7 @@ static void esp_aws_shadow_mqtt_disconnected(esp_mqtt_event_handle_t event, esp_
     esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
 }
 
-static void esp_aws_shadow_mqtt_subscribed(esp_mqtt_event_handle_t event, esp_aws_shadow_handle_t handle)
+static void esp_aws_shadow_mqtt_subscribed(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
 {
     EventBits_t bits = 0;
 
@@ -150,7 +150,55 @@ static void esp_aws_shadow_mqtt_subscribed(esp_mqtt_event_handle_t event, esp_aw
     }
 }
 
-static void esp_aws_shadow_mqtt_data(esp_mqtt_event_handle_t event, esp_aws_shadow_handle_t handle)
+static void esp_aws_shadow_mqtt_data_get_op(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event, const char *action, size_t action_len)
+{
+    const char *op = action + SHADOW_OP_GET_LENGTH;
+    size_t op_len = action_len - SHADOW_OP_GET_LENGTH;
+
+    if (op_len == SHADOW_SUFFIX_ACCEPTED_LENGTH && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
+    {
+        // /get/accepted
+        aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_DESIRED_STATE);
+        // TODO data
+        esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
+    }
+    else if (op_len == SHADOW_SUFFIX_REJECTED_LENGTH && strncmp(op, SHADOW_SUFFIX_REJECTED, SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
+    {
+        // /get/rejected
+        // TODO handle error
+    }
+}
+
+static void esp_aws_shadow_mqtt_data_update_op(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event, const char *action, size_t action_len)
+{
+    const char *op = action + SHADOW_OP_UPDATE_LENGTH;
+    size_t op_len = action_len - SHADOW_OP_UPDATE_LENGTH;
+
+    if (op_len == SHADOW_SUFFIX_ACCEPTED_LENGTH && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
+    {
+        // /update/accepted
+        // TODO
+    }
+    else if (op_len == SHADOW_SUFFIX_REJECTED_LENGTH && strncmp(op, SHADOW_SUFFIX_REJECTED, SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
+    {
+        // /update/rejected
+        // TODO handle error
+    }
+    else if (op_len == SHADOW_SUFFIX_DELTA_LENGTH && strncmp(op, SHADOW_SUFFIX_DELTA, SHADOW_SUFFIX_DELTA_LENGTH) == 0)
+    {
+        // /update/delta
+        // TODO
+    }
+    else if (op_len == SHADOW_SUFFIX_DOCUMENT_LENGTH && strncmp(op, SHADOW_SUFFIX_DOCUMENT, SHADOW_SUFFIX_DOCUMENT_LENGTH) == 0)
+    {
+        // /update/document
+        aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_DESIRED_STATE);
+        // TODO data
+        esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
+    }
+}
+
+static void esp_aws_shadow_mqtt_data(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
 {
     // See https://docs.aws.amazon.com/iot/latest/developerguide/device-shadow-document.html#device-shadow-example-response-json
 
@@ -164,50 +212,12 @@ static void esp_aws_shadow_mqtt_data(esp_mqtt_event_handle_t event, esp_aws_shad
         if (action_len >= SHADOW_OP_GET_LENGTH && strncmp(action, SHADOW_OP_GET, SHADOW_OP_GET_LENGTH) == 0)
         {
             // Get
-            const char *op = action + SHADOW_OP_GET_LENGTH;
-            size_t op_len = action_len - SHADOW_OP_GET_LENGTH;
-
-            if (op_len == SHADOW_SUFFIX_ACCEPTED_LENGTH && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
-            {
-                // /get/accepted
-                aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_DESIRED_STATE);
-                // TODO data
-                esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
-            }
-            else if (op_len == SHADOW_SUFFIX_REJECTED_LENGTH && strncmp(op, SHADOW_SUFFIX_REJECTED, SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
-            {
-                // /get/rejected
-                // TODO handle error
-            }
+            esp_aws_shadow_mqtt_data_get_op(handle, event, action, action_len);
         }
         else if (action_len >= SHADOW_OP_UPDATE_LENGTH && strncmp(action, SHADOW_OP_UPDATE, SHADOW_OP_UPDATE_LENGTH) == 0)
         {
             // Update
-            const char *op = action + SHADOW_OP_UPDATE_LENGTH;
-            size_t op_len = action_len - SHADOW_OP_UPDATE_LENGTH;
-
-            if (op_len == SHADOW_SUFFIX_ACCEPTED_LENGTH && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
-            {
-                // /update/accepted
-                // TODO
-            }
-            else if (op_len == SHADOW_SUFFIX_REJECTED_LENGTH && strncmp(op, SHADOW_SUFFIX_REJECTED, SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
-            {
-                // /update/rejected
-                // TODO handle error
-            }
-            else if (op_len == SHADOW_SUFFIX_DELTA_LENGTH && strncmp(op, SHADOW_SUFFIX_DELTA, SHADOW_SUFFIX_DELTA_LENGTH) == 0)
-            {
-                // /update/delta
-                // TODO
-            }
-            else if (op_len == SHADOW_SUFFIX_DOCUMENT_LENGTH && strncmp(op, SHADOW_SUFFIX_DOCUMENT, SHADOW_SUFFIX_DOCUMENT_LENGTH) == 0)
-            {
-                // /update/document
-                aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_DESIRED_STATE);
-                // TODO data
-                esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
-            }
+            esp_aws_shadow_mqtt_data_update_op(handle, event, action, action_len);
         }
     }
 }
@@ -220,19 +230,19 @@ static void esp_aws_shadow_mqtt_handler(void *handler_args, esp_event_base_t bas
     switch (event->event_id)
     {
     case MQTT_EVENT_CONNECTED:
-        esp_aws_shadow_mqtt_connected(event, handle);
+        esp_aws_shadow_mqtt_connected(handle, event);
         break;
 
     case MQTT_EVENT_DISCONNECTED:
-        esp_aws_shadow_mqtt_disconnected(event, handle);
+        esp_aws_shadow_mqtt_disconnected(handle, event);
         break;
 
     case MQTT_EVENT_SUBSCRIBED:
-        esp_aws_shadow_mqtt_subscribed(event, handle);
+        esp_aws_shadow_mqtt_subscribed(handle, event);
         break;
 
     case MQTT_EVENT_DATA:
-        esp_aws_shadow_mqtt_data(event, handle);
+        esp_aws_shadow_mqtt_data(handle, event);
         break;
 
         /*
