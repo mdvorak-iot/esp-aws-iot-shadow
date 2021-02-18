@@ -222,6 +222,30 @@ static void esp_aws_shadow_mqtt_data(esp_aws_shadow_handle_t handle, esp_mqtt_ev
     }
 }
 
+static void esp_aws_shadow_mqtt_error(esp_aws_shadow_handle_t handle, const esp_mqtt_error_codes_t *error_handle)
+{
+    if (error_handle == NULL)
+    {
+        ESP_LOGW(TAG, "unknown error");
+        return;
+    }
+
+    switch (error_handle->error_type)
+    {
+    case MQTT_ERROR_TYPE_ESP_TLS:
+        ESP_LOGW(TAG, "connection tls error: 0x%x", error_handle->connect_return_code);
+        break;
+
+    case MQTT_ERROR_TYPE_CONNECTION_REFUSED:
+        ESP_LOGW(TAG, "connection refused error: 0x%x", error_handle->connect_return_code);
+        break;
+
+    default:
+        ESP_LOGW(TAG, "unknown error type: 0x%x", error_handle->error_type);
+        break;
+    }
+}
+
 static void esp_aws_shadow_mqtt_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
     esp_aws_shadow_handle_t handle = (esp_aws_shadow_handle_t)handler_args;
@@ -245,36 +269,9 @@ static void esp_aws_shadow_mqtt_handler(void *handler_args, esp_event_base_t bas
         esp_aws_shadow_mqtt_data(handle, event);
         break;
 
-        /*
-    case MQTT_EVENT_DATA:
-        ESP_LOGI(TAG, "MQTT_EVENT_DATA, topic=%.*s", event->topic_len, event->topic);
-        ESP_LOGI(TAG, "DATA=%.*s", event->data_len, event->data);
-
-        if (Shadow_MatchTopic(event->topic, event->topic_len, &messageType, &pcThingName, &usThingNameLength) == SHADOW_SUCCESS)
-        {
-            ESP_LOGI(TAG, "SHADOW thing=%.*s", usThingNameLength, pcThingName);
-        }
-        break;
     case MQTT_EVENT_ERROR:
-        ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
-        // if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT)
-        // {
-        // 	ESP_LOGI(TAG, "Last error code reported from esp-tls: 0x%x", event->error_handle->esp_tls_last_esp_err);
-        // 	ESP_LOGI(TAG, "Last tls stack error number: 0x%x", event->error_handle->esp_tls_stack_err);
-        // 	ESP_LOGI(TAG, "Last captured errno : %d (%s)", event->error_handle->esp_transport_sock_errno,
-        // 			 strerror(event->error_handle->esp_transport_sock_errno));
-        // }
-        // else
-        if (event->error_handle->error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED)
-        {
-            ESP_LOGI(TAG, "Connection refused error: 0x%x", event->error_handle->connect_return_code);
-        }
-        else
-        {
-            ESP_LOGW(TAG, "Unknown error type: 0x%x", event->error_handle->error_type);
-        }
+        esp_aws_shadow_mqtt_error(handle, event->error_handle);
         break;
-        */
 
     default:
         ESP_LOGD(TAG, "unhandled event: %d", event->event_id);
