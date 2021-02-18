@@ -60,6 +60,8 @@ extern "C"
 
 	bool esp_aws_shadow_wait_for_ready(esp_aws_shadow_handle_t handle, TickType_t ticks_to_wait);
 
+	esp_err_t esp_aws_shadow_request_get(esp_aws_shadow_handle_t handle);
+
 	esp_err_t esp_aws_shadow_request_update(esp_aws_shadow_handle_t handle, const cJSON *root);
 
 	esp_err_t esp_aws_shadow_request_update_reported(esp_aws_shadow_handle_t handle, const cJSON *reported, const char *client_token);

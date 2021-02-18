@@ -127,15 +127,6 @@ static esp_err_t esp_aws_shadow_event_dispatch_error(esp_aws_shadow_handle_t han
     return err;
 }
 
-static void esp_aws_shadow_request_get(esp_aws_shadow_handle_t handle)
-{
-    char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
-    if (esp_mqtt_client_publish(handle->client, esp_aws_shadow_topic_name(handle, SHADOW_OP_GET, topic_name, sizeof(topic_name)), NULL, 0, 1, 0) == -1)
-    {
-        ESP_LOGE(TAG, "failed to publish %s" SHADOW_OP_GET, handle->topic_prefix);
-    }
-}
-
 static void esp_aws_shadow_mqtt_connected(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
 {
     // Reset tracking
@@ -215,7 +206,11 @@ static void esp_aws_shadow_mqtt_subscribed(esp_aws_shadow_handle_t handle, esp_m
         esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
 
         // Request data
-        esp_aws_shadow_request_get(handle);
+        esp_err_t err = esp_aws_shadow_request_get(handle);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "failed to publish %s" SHADOW_OP_GET, handle->topic_prefix);
+        }
     }
 }
 
@@ -515,6 +510,16 @@ bool esp_aws_shadow_wait_for_ready(esp_aws_shadow_handle_t handle, TickType_t ti
     return (bits & SUBSCRIBED_ALL_BITS) == SUBSCRIBED_ALL_BITS;
 }
 
+esp_err_t esp_aws_shadow_request_get(esp_aws_shadow_handle_t handle)
+{
+    char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
+    esp_aws_shadow_topic_name(handle, SHADOW_OP_GET, topic_name, sizeof(topic_name));
+    ESP_LOGI(TAG, "sending %s", topic_name);
+
+    int msg_id = esp_mqtt_client_publish(handle->client, topic_name, NULL, 0, 1, 0);
+    return msg_id != -1 ? ESP_OK : ESP_FAIL;
+}
+
 esp_err_t esp_aws_shadow_request_delete(esp_aws_shadow_handle_t handle)
 {
     if (handle == NULL)
@@ -523,7 +528,10 @@ esp_err_t esp_aws_shadow_request_delete(esp_aws_shadow_handle_t handle)
     }
 
     char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
-    int msg_id = esp_mqtt_client_publish(handle->client, esp_aws_shadow_topic_name(handle, SHADOW_OP_DELETE, topic_name, sizeof(topic_name)), NULL, 0, 1, 0);
+    esp_aws_shadow_topic_name(handle, SHADOW_OP_DELETE, topic_name, sizeof(topic_name));
+
+    ESP_LOGI(TAG, "sending %s", topic_name);
+    int msg_id = esp_mqtt_client_publish(handle->client, topic_name, NULL, 0, 1, 0);
     return msg_id != -1 ? ESP_OK : ESP_FAIL;
 }
 
@@ -535,9 +543,17 @@ esp_err_t esp_aws_shadow_request_update(esp_aws_shadow_handle_t handle, const cJ
     }
 
     char *json = cJSON_PrintUnformatted(root);
-    char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
+    if (json == NULL)
+    {
+        return ESP_FAIL;
+    }
 
-    int msg_id = esp_mqtt_client_publish(handle->client, esp_aws_shadow_topic_name(handle, SHADOW_OP_UPDATE, topic_name, sizeof(topic_name)), json, 0, 1, 0);
+    size_t json_len = strlen(json);
+    char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
+    esp_aws_shadow_topic_name(handle, SHADOW_OP_UPDATE, topic_name, sizeof(topic_name));
+
+    ESP_LOGI(TAG, "sending %s (%d bytes)", topic_name, json_len);
+    int msg_id = esp_mqtt_client_publish(handle->client, topic_name, json, json_len, 1, 0);
     free(json);
 
     return msg_id != -1 ? ESP_OK : ESP_FAIL;
