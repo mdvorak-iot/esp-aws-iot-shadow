@@ -1,9 +1,20 @@
 #include "esp_aws_shadow.h"
 #include <string.h>
 #include <esp_log.h>
+#include <esp_event.h>
 #include <freertos/event_groups.h>
 
 static const char TAG[] = "esp_aws_shadow";
+
+ESP_EVENT_DEFINE_BASE(AWS_SHADOW_EVENT);
+
+#define AWS_SHADOW_EVENT_DATA_INITIALIZER(handle_, event_id_) \
+    {                                                         \
+        .event_id = event_id_,                                \
+        .handle = handle_,                                    \
+        .thing_name = handle->thing_name,                     \
+        .shadow_name = handle->shadow_name,                   \
+    }
 
 /**
  * @brief The maximum length of Thing Name.
@@ -32,14 +43,13 @@ static const int SUBSCRIBED_ALL_BITS = SUBSCRIBED_GET_ACCEPTED_BIT | SUBSCRIBED_
 struct esp_aws_shadow_handle
 {
     esp_mqtt_client_handle_t client;
+    esp_event_loop_handle_t event_loop;
     EventGroupHandle_t event_group;
     char topic_prefix[SHADOW_TOPIC_MAX_LENGTH];
     uint8_t topic_prefix_len;
 
     char thing_name[SHADOW_THINGNAME_LENGTH_MAX];
-    uint8_t thing_name_len;
     char shadow_name[SHADOW_NAME_LENGTH_MAX];
-    uint8_t shadow_name_len;
 
     // For MQTT_EVENT_SUBSCRIBED tracking
     struct topic_substriptions_t
@@ -58,6 +68,18 @@ inline static char *esp_aws_shadow_topic_name(esp_aws_shadow_handle_t handle, co
     memcpy(topic_buf, handle->topic_prefix, handle->topic_prefix_len);
     strncpy(topic_buf + handle->topic_prefix_len, topic_suffix, topic_buf_len - handle->topic_prefix_len);
     return topic_buf;
+}
+
+static esp_err_t esp_aws_shadow_dispatch_event(esp_event_loop_handle_t event_loop, aws_shadow_event_data_t *event)
+{
+    esp_err_t err = esp_event_post_to(event_loop, AWS_SHADOW_EVENT, event->event_id, event, sizeof(*event), portMAX_DELAY);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "esp_event_post_to failed: %d", err);
+        return err;
+    }
+
+    return esp_event_loop_run(event_loop, 0);
 }
 
 static void esp_aws_shadow_mqtt_connected(esp_mqtt_event_handle_t event, esp_aws_shadow_handle_t handle)
@@ -79,6 +101,14 @@ static void esp_aws_shadow_mqtt_connected(esp_mqtt_event_handle_t event, esp_aws
     // Connected state
     xEventGroupSetBits(handle->event_group, CONNECTED_BIT);
     ESP_LOGI(TAG, "%s connected to mqtt server", handle->topic_prefix);
+}
+
+static void esp_aws_shadow_mqtt_disconnected(esp_mqtt_event_handle_t event, esp_aws_shadow_handle_t handle)
+{
+    xEventGroupClearBits(handle->event_group, CONNECTED_BIT | SUBSCRIBED_ALL_BITS);
+
+    aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_DISCONNECTED);
+    esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
 }
 
 static void esp_aws_shadow_mqtt_subscribed(esp_mqtt_event_handle_t event, esp_aws_shadow_handle_t handle)
@@ -116,10 +146,13 @@ static void esp_aws_shadow_mqtt_subscribed(esp_mqtt_event_handle_t event, esp_aw
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_DOCUMENTS_BIT);
     }
 
-    // For logging
+    // Ready?
     if ((bits & SUBSCRIBED_ALL_BITS) == SUBSCRIBED_ALL_BITS)
     {
         ESP_LOGI(TAG, "%s is ready", handle->topic_prefix);
+
+        aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_READY);
+        esp_aws_shadow_dispatch_event(handle->event_loop, &shadow_event);
     }
 }
 
@@ -146,7 +179,7 @@ static void esp_aws_shadow_mqtt_handler(void *handler_args, esp_event_base_t bas
         break;
 
     case MQTT_EVENT_DISCONNECTED:
-        xEventGroupClearBits(handle->event_group, CONNECTED_BIT | SUBSCRIBED_ALL_BITS);
+        esp_aws_shadow_mqtt_disconnected(event, handle);
         break;
 
     case MQTT_EVENT_SUBSCRIBED:
@@ -223,6 +256,18 @@ esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing
     result->event_group = xEventGroupCreate();
     configASSERT(result->event_group);
 
+    esp_event_loop_args_t event_loop_args = {
+        .queue_size = 1,
+    };
+    esp_err_t err = esp_event_loop_create(&event_loop_args, &result->event_loop);
+    if (err != ESP_OK)
+    {
+        esp_aws_shadow_delete(result);
+        return err;
+    }
+
+    strcpy(result->thing_name, thing_name);
+
     if (shadow_name == NULL)
     {
         // Classic
@@ -231,8 +276,10 @@ esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing
     else
     {
         // Named
+        strcpy(result->shadow_name, shadow_name);
         snprintf(result->topic_prefix, sizeof(result->topic_prefix), "$aws/things/%s/shadow/name/%s", thing_name, shadow_name);
     }
+
     result->topic_prefix_len = strlen(result->topic_prefix);
     if (result->topic_prefix == 0)
     {
@@ -241,16 +288,8 @@ esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing
         return ESP_FAIL;
     }
 
-    strcpy(result->thing_name, thing_name);
-    result->thing_name_len = thing_name_len;
-    if (shadow_name)
-    {
-        strcpy(result->shadow_name, shadow_name);
-        result->shadow_name_len = shadow_name_len;
-    }
-
     // Handler
-    esp_err_t err = esp_mqtt_client_register_event(client, MQTT_EVENT_ANY, esp_aws_shadow_mqtt_handler, result);
+    err = esp_mqtt_client_register_event(client, MQTT_EVENT_ANY, esp_aws_shadow_mqtt_handler, result);
     if (err != ESP_OK)
     {
         esp_aws_shadow_delete(result);
@@ -291,9 +330,8 @@ bool esp_aws_shadow_is_ready(esp_aws_shadow_handle_t handle)
     return (bits & SUBSCRIBED_ALL_BITS) == SUBSCRIBED_ALL_BITS;
 }
 
-// TODO
-// bool esp_aws_shadow_wait_for_ready(esp_aws_shadow_handle_t handle, uint32_t timeout_ms)
-// {
-//     EventBits_t bits = xEventGroupWaitBits(handle->event_group, timeout_ms);
-//     return (bits & SUBSCRIBED_ALL_BITS) == SUBSCRIBED_ALL_BITS;
-// }
+bool esp_aws_shadow_wait_for_ready(esp_aws_shadow_handle_t handle, TickType_t ticks_to_wait)
+{
+    EventBits_t bits = xEventGroupWaitBits(handle->event_group, SUBSCRIBED_ALL_BITS, pdFALSE, pdTRUE, ticks_to_wait);
+    return (bits & SUBSCRIBED_ALL_BITS) == SUBSCRIBED_ALL_BITS;
+}
