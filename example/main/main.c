@@ -7,9 +7,10 @@
 #include <esp_tls.h>
 #include <esp_ota_ops.h>
 #include <esp_wifi.h>
-#include <wifi_reconnect.h>
-#include "certs.h"
 #include "esp_aws_shadow.h"
+
+// TODO
+#include "certs.h"
 
 static const char TAG[] = "example";
 
@@ -19,7 +20,11 @@ static esp_aws_shadow_handle_t shadow_client = NULL;
 
 static void wifi_event_handler(void *handler_args, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
-	if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
+	if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
+	{
+		esp_wifi_connect();
+	}
+	else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
 	{
 		if (!mqtt_started)
 		{
@@ -47,7 +52,7 @@ static void mqtt_error_handler(const esp_mqtt_error_codes_t *error_handle)
 	{
 	case MQTT_ERROR_TYPE_ESP_TLS:
 		//case MQTT_ERROR_TYPE_TCP_TRANSPORT:
-		ESP_LOGW(TAG, "connection tls error: 0x%x, stack error number 0x%x", error_handle->esp_tls_last_esp_err, error_handle->esp_tls_stack_err);
+		ESP_LOGW(TAG, "connection tls error: 0x%x (%s), stack error number 0x%x", error_handle->esp_tls_last_esp_err, esp_err_to_name(error_handle->esp_tls_last_esp_err), error_handle->esp_tls_stack_err);
 		//ESP_LOGW(TAG, "connection tls error: 0x%x, stack error number 0x%x, last captured errno: %d (%s)", error_handle->esp_tls_last_esp_err, error_handle->esp_tls_stack_err, error_handle->esp_transport_sock_errno, strerror(error_handle->esp_transport_sock_errno));
 		break;
 
@@ -123,9 +128,8 @@ static void setup()
 	ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_FLASH));
 	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
 	ESP_ERROR_CHECK(esp_wifi_start());
+	ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, wifi_event_handler, NULL, NULL));
 	ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, wifi_event_handler, NULL, NULL));
-
-	ESP_ERROR_CHECK(wifi_reconnect_start()); // TODO remove from example
 
 	// NOTE this assumes we have WiFi already stored in NVS
 
