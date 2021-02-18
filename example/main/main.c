@@ -13,44 +13,78 @@
 
 static const char TAG[] = "example";
 
+static bool mqtt_started = false;
 static esp_mqtt_client_handle_t mqtt_client = NULL;
 static esp_aws_shadow_handle_t shadow_client = NULL;
 
-static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+static void wifi_event_handler(void *handler_args, esp_event_base_t event_base, int32_t event_id, void *event_data)
+{
+	if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
+	{
+		if (!mqtt_started)
+		{
+			// Initial connection
+			ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_start(mqtt_client));
+			mqtt_started = true;
+		}
+		else
+		{
+			// Ignore error here
+			esp_mqtt_client_reconnect(mqtt_client);
+		}
+	}
+}
+
+static void mqtt_error_handler(const esp_mqtt_error_codes_t *error_handle)
+{
+	if (error_handle == NULL)
+	{
+		ESP_LOGW(TAG, "unknown error");
+		return;
+	}
+
+	switch (error_handle->error_type)
+	{
+	case MQTT_ERROR_TYPE_ESP_TLS:
+		//case MQTT_ERROR_TYPE_TCP_TRANSPORT:
+		ESP_LOGW(TAG, "connection tls error: 0x%x, stack error number 0x%x", error_handle->esp_tls_last_esp_err, error_handle->esp_tls_stack_err);
+		//ESP_LOGW(TAG, "connection tls error: 0x%x, stack error number 0x%x, last captured errno: %d (%s)", error_handle->esp_tls_last_esp_err, error_handle->esp_tls_stack_err, error_handle->esp_transport_sock_errno, strerror(error_handle->esp_transport_sock_errno));
+		break;
+
+	case MQTT_ERROR_TYPE_CONNECTION_REFUSED:
+		ESP_LOGW(TAG, "connection refused error: 0x%x", error_handle->connect_return_code);
+		break;
+
+	default:
+		ESP_LOGW(TAG, "unknown error type: 0x%x", error_handle->error_type);
+		break;
+	}
+}
+
+static void mqtt_event_handler(void *handler_args, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
 	esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
 
 	switch (event->event_id)
 	{
 	case MQTT_EVENT_DATA:
-		ESP_LOGI(TAG, "MQTT_EVENT_DATA, topic=%.*s", event->topic_len, event->topic);
-		ESP_LOGI(TAG, "DATA=%.*s", event->data_len, event->data);
+		// Verbose output for diagnostics, should be ommited in an actual code
+		ESP_LOGI(TAG, "topic=%.*s, data=%.*s", event->topic_len, event->topic, event->data_len, event->data);
 		break;
+
+	case MQTT_EVENT_BEFORE_CONNECT:
+		ESP_LOGI(TAG, "connecting to mqtt...");
+		break;
+
 	case MQTT_EVENT_ERROR:
-		ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
-		// if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT)
-		// {
-		// 	ESP_LOGI(TAG, "Last error code reported from esp-tls: 0x%x", event->error_handle->esp_tls_last_esp_err);
-		// 	ESP_LOGI(TAG, "Last tls stack error number: 0x%x", event->error_handle->esp_tls_stack_err);
-		// 	ESP_LOGI(TAG, "Last captured errno : %d (%s)", event->error_handle->esp_transport_sock_errno,
-		// 			 strerror(event->error_handle->esp_transport_sock_errno));
-		// }
-		// else
-		if (event->error_handle->error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED)
-		{
-			ESP_LOGI(TAG, "Connection refused error: 0x%x", event->error_handle->connect_return_code);
-		}
-		else
-		{
-			ESP_LOGW(TAG, "Unknown error type: 0x%x", event->error_handle->error_type);
-		}
+		mqtt_error_handler(event->error_handle);
 		break;
 	default:
 		break;
 	}
 }
 
-static void shadow_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+static void shadow_event_handler(void *handler_args, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
 	aws_shadow_event_data_t *event = (aws_shadow_event_data_t *)event_data;
 	ESP_LOGI(TAG, "received shadow event %d for %s", event_id, event->thing_name);
@@ -59,6 +93,10 @@ static void shadow_event_handler(void *handler_args, esp_event_base_t base, int3
 	{
 		const char *welcome = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(event->desired, "welcome"));
 		ESP_LOGI(TAG, "desired welcome='%s'", welcome ? welcome : "");
+	}
+	else if (event->event_id == AWS_SHADOW_EVENT_ERROR)
+	{
+		ESP_LOGW(TAG, "shadow error %d %s", event->error->code, event->error->message);
 	}
 }
 
@@ -85,7 +123,9 @@ static void setup()
 	ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_FLASH));
 	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
 	ESP_ERROR_CHECK(esp_wifi_start());
-	ESP_ERROR_CHECK(wifi_reconnect_start());
+	ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, wifi_event_handler, NULL, NULL));
+
+	ESP_ERROR_CHECK(wifi_reconnect_start()); // TODO remove from example
 
 	// NOTE this assumes we have WiFi already stored in NVS
 
@@ -109,12 +149,7 @@ static void setup()
 	ESP_ERROR_CHECK(esp_aws_shadow_handler_register(shadow_client, AWS_SHADOW_EVENT_ANY, shadow_event_handler, NULL));
 
 	// Connect
-	wifi_reconnect_resume();
-	if (!wifi_reconnect_wait_for_connection(15000))
-	{
-		ESP_LOGE(TAG, "wifi connection timeout");
-	}
-	ESP_ERROR_CHECK(esp_mqtt_client_start(mqtt_client));
+	ESP_ERROR_CHECK(esp_wifi_connect());
 
 	// Setup complete
 	ESP_LOGI(TAG, "started");
@@ -137,7 +172,7 @@ static void run()
 	}
 }
 
-extern "C" void app_main()
+void app_main()
 {
 	setup();
 	run();

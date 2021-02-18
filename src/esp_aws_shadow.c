@@ -317,30 +317,6 @@ static void esp_aws_shadow_mqtt_data(esp_aws_shadow_handle_t handle, esp_mqtt_ev
     }
 }
 
-static void esp_aws_shadow_mqtt_error(esp_aws_shadow_handle_t handle, const esp_mqtt_error_codes_t *error_handle)
-{
-    if (error_handle == NULL)
-    {
-        ESP_LOGW(TAG, "unknown error");
-        return;
-    }
-
-    switch (error_handle->error_type)
-    {
-    case MQTT_ERROR_TYPE_ESP_TLS:
-        ESP_LOGW(TAG, "connection tls error: 0x%x", error_handle->connect_return_code);
-        break;
-
-    case MQTT_ERROR_TYPE_CONNECTION_REFUSED:
-        ESP_LOGW(TAG, "connection refused error: 0x%x", error_handle->connect_return_code);
-        break;
-
-    default:
-        ESP_LOGW(TAG, "unknown error type: 0x%x", error_handle->error_type);
-        break;
-    }
-}
-
 static void esp_aws_shadow_mqtt_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
     esp_aws_shadow_handle_t handle = (esp_aws_shadow_handle_t)handler_args;
@@ -365,7 +341,7 @@ static void esp_aws_shadow_mqtt_handler(void *handler_args, esp_event_base_t bas
         break;
 
     case MQTT_EVENT_ERROR:
-        esp_aws_shadow_mqtt_error(handle, event->error_handle);
+        ESP_LOGD(TAG, "got mqtt error type: %d", event->error_handle->error_type);
         break;
 
     default:
