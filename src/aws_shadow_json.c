@@ -43,8 +43,9 @@ cJSON *esp_aws_shadow_parse_update_delta(const char *data, size_t data_len, aws_
 cJSON *esp_aws_shadow_parse_error(const char *data, size_t data_len, aws_shadow_event_data_t *output, aws_shadow_event_error_t *error)
 {
     cJSON *root = esp_aws_shadow_parse_json(data, data_len);
+    cJSON *code = cJSON_GetObjectItemCaseSensitive(root, AWS_SHADOW_JSON_CODE);
 
-    error->code = cJSON_GetObjectItemCaseSensitive(root, AWS_SHADOW_JSON_CODE)->valueint;
+    error->code = code ? code->valueint : 0;
     error->message = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, AWS_SHADOW_JSON_MESSAGE));
 
     output->root = root;
