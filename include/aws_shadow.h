@@ -22,7 +22,7 @@ ESP_EVENT_DECLARE_BASE(AWS_SHADOW_EVENT);
 
 typedef struct aws_shadow_handle *aws_shadow_handle_t;
 
-extern const char *AWS_ROOT_CA_PEM;
+extern const char AWS_ROOT_CA_PEM[];
 
 typedef enum
 {

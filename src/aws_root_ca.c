@@ -1,3 +1,4 @@
+#include "aws_shadow.h"
 
 const char AWS_ROOT_CA_PEM[] = R"~~~(-----BEGIN CERTIFICATE-----
 MIIDQTCCAimgAwIBAgITBmyfz5m/jAo54vB4ikPmljZbyjANBgkqhkiG9w0BAQsF
