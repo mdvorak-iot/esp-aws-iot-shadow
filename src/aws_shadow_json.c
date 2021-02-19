@@ -1,4 +1,4 @@
-#include "esp_aws_shadow_json.h"
+#include "aws_shadow_json.h"
 #include <esp_idf_version.h>
 
 // See https://docs.aws.amazon.com/iot/latest/developerguide/device-shadow-document.html#device-shadow-example-response-json
@@ -19,7 +19,7 @@ static cJSON *esp_aws_shadow_parse_json(const char *data, size_t data_len)
 cJSON *esp_aws_shadow_parse_update_accepted(const char *data, size_t data_len, aws_shadow_event_data_t *output)
 {
     cJSON *root = esp_aws_shadow_parse_json(data, data_len);
-    cJSON *state = cJSON_GetObjectItemCaseSensitive(root, "state");
+    cJSON *state = cJSON_GetObjectItemCaseSensitive(root, AWS_SHADOW_JSON_STATE);
     // Note: all cJSON methods are NULL-safe
     output->root = root;
     output->desired = cJSON_GetObjectItemCaseSensitive(state, "desired");
@@ -35,7 +35,7 @@ cJSON *esp_aws_shadow_parse_update_delta(const char *data, size_t data_len, aws_
     cJSON *root = esp_aws_shadow_parse_json(data, data_len);
     // Note: delta document have attributes directly under state attribute
     output->root = root;
-    output->delta = cJSON_GetObjectItemCaseSensitive(root, "state");
+    output->delta = cJSON_GetObjectItemCaseSensitive(root, AWS_SHADOW_JSON_STATE);
     output->client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, "clientToken"));
     return root;
 }

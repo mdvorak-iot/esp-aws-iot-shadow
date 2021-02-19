@@ -1,7 +1,7 @@
 #ifndef ESP_AWS_SHADOW_JSON_H_
 #define ESP_AWS_SHADOW_JSON_H_
 
-#include "esp_aws_shadow.h"
+#include "aws_shadow.h"
 
 #ifdef __cplusplus
 extern "C" {

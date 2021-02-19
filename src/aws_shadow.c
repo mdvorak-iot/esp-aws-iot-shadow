@@ -1,6 +1,6 @@
-#include "esp_aws_shadow.h"
-#include "esp_aws_shadow_constants.h"
-#include "esp_aws_shadow_json.h"
+#include "aws_shadow.h"
+#include "aws_shadow_json.h"
+#include "aws_shadow_topic.h"
 #include <cJSON.h>
 #include <esp_event.h>
 #include <esp_log.h>
@@ -31,7 +31,7 @@ static const int SUBSCRIBED_DELETE_REJECTED_BIT = BIT18;
 static const int SUBSCRIBED_ALL_BITS =
     SUBSCRIBED_GET_ACCEPTED_BIT | SUBSCRIBED_GET_REJECTED_BIT | SUBSCRIBED_UPDATE_ACCEPTED_BIT | SUBSCRIBED_UPDATE_REJECTED_BIT | SUBSCRIBED_UPDATE_DELTA_BIT | SUBSCRIBED_DELETE_ACCEPTED_BIT | SUBSCRIBED_DELETE_REJECTED_BIT;
 
-struct esp_aws_shadow_handle {
+struct aws_shadow_handle {
     esp_mqtt_client_handle_t client;
     esp_event_loop_handle_t event_loop;
     EventGroupHandle_t event_group;
@@ -53,7 +53,7 @@ struct esp_aws_shadow_handle {
     } topic_substriptions;
 };
 
-inline static char *esp_aws_shadow_topic_name(esp_aws_shadow_handle_t handle, const char *topic_suffix,
+inline static char *esp_aws_shadow_topic_name(aws_shadow_handle_t handle, const char *topic_suffix,
                                               char *topic_buf, uint16_t topic_buf_len)
 {
     memcpy(topic_buf, handle->topic_prefix, handle->topic_prefix_len);
@@ -73,7 +73,7 @@ static esp_err_t esp_aws_shadow_event_dispatch(esp_event_loop_handle_t event_loo
     return esp_event_loop_run(event_loop, 0);
 }
 
-static esp_err_t esp_aws_shadow_event_dispatch_update_accepted(esp_aws_shadow_handle_t handle,
+static esp_err_t esp_aws_shadow_event_dispatch_update_accepted(aws_shadow_handle_t handle,
                                                                esp_mqtt_event_handle_t event)
 {
     aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_UPDATE_ACCEPTED);
@@ -91,7 +91,7 @@ static esp_err_t esp_aws_shadow_event_dispatch_update_accepted(esp_aws_shadow_ha
     return err;
 }
 
-static esp_err_t esp_aws_shadow_event_dispatch_update_delta(esp_aws_shadow_handle_t handle,
+static esp_err_t esp_aws_shadow_event_dispatch_update_delta(aws_shadow_handle_t handle,
                                                             esp_mqtt_event_handle_t event)
 {
     aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_UPDATE_DELTA);
@@ -109,7 +109,7 @@ static esp_err_t esp_aws_shadow_event_dispatch_update_delta(esp_aws_shadow_handl
     return err;
 }
 
-static esp_err_t esp_aws_shadow_event_dispatch_error(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
+static esp_err_t esp_aws_shadow_event_dispatch_error(aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
 {
     aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_ERROR);
     aws_shadow_event_error_t shadow_error = {};
@@ -129,7 +129,7 @@ static esp_err_t esp_aws_shadow_event_dispatch_error(esp_aws_shadow_handle_t han
     return err;
 }
 
-static void esp_aws_shadow_mqtt_connected(esp_aws_shadow_handle_t handle)
+static void esp_aws_shadow_mqtt_connected(aws_shadow_handle_t handle)
 {
     // Reset tracking
     xEventGroupClearBits(handle->event_group, SUBSCRIBED_ALL_BITS);
@@ -151,7 +151,7 @@ static void esp_aws_shadow_mqtt_connected(esp_aws_shadow_handle_t handle)
     ESP_LOGI(TAG, "%s connected to mqtt server", handle->topic_prefix);
 }
 
-static void esp_aws_shadow_mqtt_disconnected(esp_aws_shadow_handle_t handle)
+static void esp_aws_shadow_mqtt_disconnected(aws_shadow_handle_t handle)
 {
     xEventGroupClearBits(handle->event_group, CONNECTED_BIT | SUBSCRIBED_ALL_BITS);
 
@@ -159,7 +159,7 @@ static void esp_aws_shadow_mqtt_disconnected(esp_aws_shadow_handle_t handle)
     esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
 }
 
-static void esp_aws_shadow_mqtt_subscribed(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
+static void esp_aws_shadow_mqtt_subscribed(aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
 {
     EventBits_t bits = 0;
 
@@ -208,7 +208,7 @@ static void esp_aws_shadow_mqtt_subscribed(esp_aws_shadow_handle_t handle, esp_m
         esp_aws_shadow_event_dispatch(handle->event_loop, &shadow_event);
 
         // Request data
-        esp_err_t err = esp_aws_shadow_request_get(handle);
+        esp_err_t err = aws_shadow_request_get(handle);
         if (err != ESP_OK)
         {
             ESP_LOGE(TAG, "failed to publish %s" SHADOW_OP_GET, handle->topic_prefix);
@@ -216,7 +216,7 @@ static void esp_aws_shadow_mqtt_subscribed(esp_aws_shadow_handle_t handle, esp_m
     }
 }
 
-static void esp_aws_shadow_mqtt_data_get_op(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event,
+static void esp_aws_shadow_mqtt_data_get_op(aws_shadow_handle_t handle, esp_mqtt_event_handle_t event,
                                             const char *action, uint16_t action_len)
 {
     const char *op = action + SHADOW_OP_GET_LENGTH;
@@ -244,7 +244,7 @@ static void esp_aws_shadow_mqtt_data_get_op(esp_aws_shadow_handle_t handle, esp_
     }
 }
 
-static void esp_aws_shadow_mqtt_data_update_op(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event,
+static void esp_aws_shadow_mqtt_data_update_op(aws_shadow_handle_t handle, esp_mqtt_event_handle_t event,
                                                const char *action, uint16_t action_len)
 {
     const char *op = action + SHADOW_OP_UPDATE_LENGTH;
@@ -281,7 +281,7 @@ static void esp_aws_shadow_mqtt_data_update_op(esp_aws_shadow_handle_t handle, e
     }
 }
 
-static void esp_aws_shadow_mqtt_data_delete_op(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event,
+static void esp_aws_shadow_mqtt_data_delete_op(aws_shadow_handle_t handle, esp_mqtt_event_handle_t event,
                                                const char *action, uint16_t action_len)
 {
     const char *op = action + SHADOW_OP_DELETE_LENGTH;
@@ -310,7 +310,7 @@ static void esp_aws_shadow_mqtt_data_delete_op(esp_aws_shadow_handle_t handle, e
     }
 }
 
-static void esp_aws_shadow_mqtt_data(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
+static void esp_aws_shadow_mqtt_data(aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
 {
     if (event->topic_len > handle->topic_prefix_len && event->topic_len < SHADOW_TOPIC_MAX_LENGTH
         && strncmp(event->topic, handle->topic_prefix, handle->topic_prefix_len) == 0)
@@ -342,7 +342,7 @@ static void esp_aws_shadow_mqtt_data(esp_aws_shadow_handle_t handle, esp_mqtt_ev
 
 static void esp_aws_shadow_mqtt_handler(void *handler_args, __unused esp_event_base_t base, __unused int32_t event_id, void *event_data)
 {
-    esp_aws_shadow_handle_t handle = (esp_aws_shadow_handle_t)handler_args;
+    aws_shadow_handle_t handle = (aws_shadow_handle_t)handler_args;
     esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
 
     switch (event->event_id)
@@ -373,8 +373,8 @@ static void esp_aws_shadow_mqtt_handler(void *handler_args, __unused esp_event_b
     }
 }
 
-esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing_name, const char *shadow_name,
-                              esp_aws_shadow_handle_t *handle)
+esp_err_t aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing_name, const char *shadow_name,
+                          aws_shadow_handle_t *handle)
 {
     if (client == NULL || thing_name == NULL || handle == NULL)
     {
@@ -391,7 +391,7 @@ esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing
     }
 
     // Alloc
-    esp_aws_shadow_handle_t result = (esp_aws_shadow_handle_t)malloc(sizeof(*result));
+    aws_shadow_handle_t result = (aws_shadow_handle_t)malloc(sizeof(*result));
     if (result == NULL)
     {
         return ESP_ERR_NO_MEM;
@@ -411,7 +411,7 @@ esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing
     if (err != ESP_OK)
     {
         ESP_LOGE(TAG, "failed to create event loop: %d", err);
-        esp_aws_shadow_delete(result);
+        aws_shadow_delete(result);
         return err;
     }
 
@@ -433,7 +433,7 @@ esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing
     if (result->topic_prefix_len == 0)
     {
         ESP_LOGE(TAG, "failed to format topic prefix for '%s' '%s'", thing_name, shadow_name ? shadow_name : "");
-        esp_aws_shadow_delete(result);
+        aws_shadow_delete(result);
         return ESP_FAIL;
     }
 
@@ -442,7 +442,7 @@ esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing
     if (err != ESP_OK)
     {
         ESP_LOGE(TAG, "failed to register mqtt event handler: %d", err);
-        esp_aws_shadow_delete(result);
+        aws_shadow_delete(result);
         return err;
     }
 
@@ -451,7 +451,7 @@ esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing
     return ESP_OK;
 }
 
-esp_err_t esp_aws_shadow_delete(esp_aws_shadow_handle_t handle)
+esp_err_t aws_shadow_delete(aws_shadow_handle_t handle)
 {
     if (handle == NULL)
     {
@@ -479,13 +479,13 @@ esp_err_t esp_aws_shadow_delete(esp_aws_shadow_handle_t handle)
     return ESP_OK;
 }
 
-inline esp_err_t esp_aws_shadow_handler_register(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id,
+inline esp_err_t aws_shadow_handler_register(aws_shadow_handle_t handle, aws_shadow_event_t event_id,
                                                  esp_event_handler_t event_handler, void *event_handler_arg)
 {
-    return esp_aws_shadow_handler_instance_register(handle, event_id, event_handler, event_handler_arg, NULL);
+    return aws_shadow_handler_instance_register(handle, event_id, event_handler, event_handler_arg, NULL);
 }
 
-inline esp_err_t esp_aws_shadow_handler_instance_register(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id,
+inline esp_err_t aws_shadow_handler_instance_register(aws_shadow_handle_t handle, aws_shadow_event_t event_id,
                                                           esp_event_handler_t event_handler, void *event_handler_arg,
                                                           esp_event_handler_instance_t *handler_ctx_arg)
 {
@@ -498,7 +498,7 @@ inline esp_err_t esp_aws_shadow_handler_instance_register(esp_aws_shadow_handle_
                                                     event_handler, event_handler_arg, handler_ctx_arg);
 }
 
-inline esp_err_t esp_aws_shadow_handler_instance_unregister(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id,
+inline esp_err_t aws_shadow_handler_instance_unregister(aws_shadow_handle_t handle, aws_shadow_event_t event_id,
                                                             esp_event_handler_instance_t handler_ctx_arg)
 {
     if (handle == NULL)
@@ -509,7 +509,7 @@ inline esp_err_t esp_aws_shadow_handler_instance_unregister(esp_aws_shadow_handl
     return esp_event_handler_instance_unregister_with(handle->event_loop, AWS_SHADOW_EVENT, event_id, handler_ctx_arg);
 }
 
-bool esp_aws_shadow_is_ready(esp_aws_shadow_handle_t handle)
+bool aws_shadow_is_ready(aws_shadow_handle_t handle)
 {
     if (handle == NULL)
     {
@@ -520,7 +520,7 @@ bool esp_aws_shadow_is_ready(esp_aws_shadow_handle_t handle)
     return (bits & SUBSCRIBED_ALL_BITS) == SUBSCRIBED_ALL_BITS;
 }
 
-bool esp_aws_shadow_wait_for_ready(esp_aws_shadow_handle_t handle, TickType_t ticks_to_wait)
+bool aws_shadow_wait_for_ready(aws_shadow_handle_t handle, TickType_t ticks_to_wait)
 {
     if (handle == NULL)
     {
@@ -531,7 +531,7 @@ bool esp_aws_shadow_wait_for_ready(esp_aws_shadow_handle_t handle, TickType_t ti
     return (bits & SUBSCRIBED_ALL_BITS) == SUBSCRIBED_ALL_BITS;
 }
 
-esp_err_t esp_aws_shadow_request_get(esp_aws_shadow_handle_t handle)
+esp_err_t aws_shadow_request_get(aws_shadow_handle_t handle)
 {
     char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
     esp_aws_shadow_topic_name(handle, SHADOW_OP_GET, topic_name, sizeof(topic_name));
@@ -541,7 +541,7 @@ esp_err_t esp_aws_shadow_request_get(esp_aws_shadow_handle_t handle)
     return msg_id != -1 ? ESP_OK : ESP_FAIL;
 }
 
-esp_err_t esp_aws_shadow_request_delete(esp_aws_shadow_handle_t handle)
+esp_err_t aws_shadow_request_delete(aws_shadow_handle_t handle)
 {
     if (handle == NULL)
     {
@@ -556,7 +556,7 @@ esp_err_t esp_aws_shadow_request_delete(esp_aws_shadow_handle_t handle)
     return msg_id != -1 ? ESP_OK : ESP_FAIL;
 }
 
-esp_err_t esp_aws_shadow_request_update(esp_aws_shadow_handle_t handle, const cJSON *root)
+esp_err_t aws_shadow_request_update(aws_shadow_handle_t handle, const cJSON *root)
 {
     if (handle == NULL || root == NULL)
     {
@@ -580,7 +580,7 @@ esp_err_t esp_aws_shadow_request_update(esp_aws_shadow_handle_t handle, const cJ
     return msg_id != -1 ? ESP_OK : ESP_FAIL;
 }
 
-esp_err_t esp_aws_shadow_request_update_reported(esp_aws_shadow_handle_t handle, const cJSON *reported,
+esp_err_t aws_shadow_request_update_reported(aws_shadow_handle_t handle, const cJSON *reported,
                                                  const char *client_token)
 {
     if (handle == NULL || reported == NULL)
@@ -589,7 +589,7 @@ esp_err_t esp_aws_shadow_request_update_reported(esp_aws_shadow_handle_t handle,
     }
 
     cJSON *root = cJSON_CreateObject();
-    cJSON *state = cJSON_AddObjectToObject(root, "state");
+    cJSON *state = cJSON_AddObjectToObject(root, AWS_SHADOW_JSON_STATE);
     cJSON_AddItemReferenceToObject(state, "reported", (cJSON *)reported); // Note: function is just missing const in declaration
 
     if (client_token != NULL)
@@ -597,12 +597,12 @@ esp_err_t esp_aws_shadow_request_update_reported(esp_aws_shadow_handle_t handle,
         cJSON_AddStringToObject(root, "clientToken", client_token);
     }
 
-    esp_err_t err = esp_aws_shadow_request_update(handle, root);
+    esp_err_t err = aws_shadow_request_update(handle, root);
     cJSON_Delete(root); // Note: This does not release input json object
     return err;
 }
 
-esp_err_t esp_aws_shadow_request_update_desired(esp_aws_shadow_handle_t handle, const cJSON *desired,
+esp_err_t aws_shadow_request_update_desired(aws_shadow_handle_t handle, const cJSON *desired,
                                                 const char *client_token)
 {
     if (handle == NULL || desired == NULL)
@@ -611,7 +611,7 @@ esp_err_t esp_aws_shadow_request_update_desired(esp_aws_shadow_handle_t handle, 
     }
 
     cJSON *root = cJSON_CreateObject();
-    cJSON *state = cJSON_AddObjectToObject(root, "state");
+    cJSON *state = cJSON_AddObjectToObject(root, AWS_SHADOW_JSON_STATE);
     cJSON_AddItemReferenceToObject(state, "desired", (cJSON *)desired); // Note: function is just missing const in declaration
 
     if (client_token != NULL)
@@ -619,7 +619,7 @@ esp_err_t esp_aws_shadow_request_update_desired(esp_aws_shadow_handle_t handle, 
         cJSON_AddStringToObject(root, "clientToken", client_token);
     }
 
-    esp_err_t err = esp_aws_shadow_request_update(handle, root);
+    esp_err_t err = aws_shadow_request_update(handle, root);
     cJSON_Delete(root); // Note: This does not release input json object
     return err;
 }

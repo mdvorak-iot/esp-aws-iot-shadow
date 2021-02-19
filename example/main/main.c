@@ -1,4 +1,4 @@
-#include "esp_aws_shadow.h"
+#include "aws_shadow.h"
 #include <esp_err.h>
 #include <esp_log.h>
 #include <esp_ota_ops.h>
@@ -16,7 +16,7 @@ static const char TAG[] = "example";
 
 static bool mqtt_started = false;
 static esp_mqtt_client_handle_t mqtt_client = NULL;
-static esp_aws_shadow_handle_t shadow_client = NULL;
+static aws_shadow_handle_t shadow_client = NULL;
 
 static void wifi_event_handler(__unused void *handler_args, esp_event_base_t event_base, int32_t event_id, __unused void *event_data)
 {
@@ -119,7 +119,7 @@ static void shadow_event_handler(__unused void *handler_args, __unused esp_event
             shadow_updated(event->delta);
             // Report they are processed
             // Note: We can reuse delta object, but any extra reported values must be sent independently
-            esp_aws_shadow_request_update_reported(event->handle, event->delta, NULL);
+            aws_shadow_request_update_reported(event->handle, event->delta, NULL);
         }
     }
     else if (event->event_id == AWS_SHADOW_EVENT_ERROR)
@@ -172,8 +172,8 @@ static void setup()
     ESP_ERROR_CHECK(esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, mqtt_event_handler, NULL));
 
     // Shadow
-    ESP_ERROR_CHECK(esp_aws_shadow_init(mqtt_client, CONFIG_AWS_IOT_THING_NAME, NULL, &shadow_client));
-    ESP_ERROR_CHECK(esp_aws_shadow_handler_register(shadow_client, AWS_SHADOW_EVENT_ANY, shadow_event_handler, NULL));
+    ESP_ERROR_CHECK(aws_shadow_init(mqtt_client, CONFIG_AWS_IOT_THING_NAME, NULL, &shadow_client));
+    ESP_ERROR_CHECK(aws_shadow_handler_register(shadow_client, AWS_SHADOW_EVENT_ANY, shadow_event_handler, NULL));
 
     // Connect
     ESP_ERROR_CHECK(esp_wifi_connect());
@@ -196,7 +196,7 @@ static _Noreturn void run()
         time(&now);
 
         cJSON_SetIntValue(now_obj, now);
-        esp_aws_shadow_request_update_reported(shadow_client, reported, NULL);
+        aws_shadow_request_update_reported(shadow_client, reported, NULL);
     }
 }
 
