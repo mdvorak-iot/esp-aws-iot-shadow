@@ -170,7 +170,6 @@ static void setup()
     mqtt_cfg.client_cert_pem = (const char *)certificate_pem_crt_start;
     mqtt_cfg.client_key_pem = (const char *)private_pem_key_start;
 
-    ESP_LOGI(TAG, "free heap: %d bytes", esp_get_free_heap_size());
     mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
     ESP_ERROR_CHECK(esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, mqtt_event_handler, NULL));
 
