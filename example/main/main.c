@@ -1,4 +1,5 @@
 #include "aws_shadow.h"
+#include "aws_shadow_mqtt_error.h"
 #include <esp_err.h>
 #include <esp_log.h>
 #include <esp_ota_ops.h>
@@ -40,35 +41,6 @@ static void wifi_event_handler(__unused void *handler_args, esp_event_base_t eve
     }
 }
 
-static void mqtt_error_handler(const esp_mqtt_error_codes_t *error_handle)
-{
-    if (error_handle == NULL)
-    {
-        ESP_LOGW(TAG, "unknown error");
-        return;
-    }
-
-    switch (error_handle->error_type)
-    {
-    case MQTT_ERROR_TYPE_ESP_TLS:
-        //case MQTT_ERROR_TYPE_TCP_TRANSPORT:
-        ESP_LOGW(TAG, "connection tls error: 0x%x (%s), stack error number 0x%x",
-                 error_handle->esp_tls_last_esp_err,
-                 esp_err_to_name(error_handle->esp_tls_last_esp_err),
-                 error_handle->esp_tls_stack_err);
-        //ESP_LOGW(TAG, "connection tls error: 0x%x, stack error number 0x%x, last captured errno: %d (%s)", error_handle->esp_tls_last_esp_err, error_handle->esp_tls_stack_err, error_handle->esp_transport_sock_errno, strerror(error_handle->esp_transport_sock_errno));
-        break;
-
-    case MQTT_ERROR_TYPE_CONNECTION_REFUSED:
-        ESP_LOGW(TAG, "connection refused error: 0x%x", error_handle->connect_return_code);
-        break;
-
-    default:
-        ESP_LOGW(TAG, "unknown error type: 0x%x", error_handle->error_type);
-        break;
-    }
-}
-
 static void mqtt_event_handler(__unused void *handler_args, __unused esp_event_base_t event_base, __unused int32_t event_id, void *event_data)
 {
     esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
@@ -85,7 +57,7 @@ static void mqtt_event_handler(__unused void *handler_args, __unused esp_event_b
         break;
 
     case MQTT_EVENT_ERROR:
-        mqtt_error_handler(event->error_handle);
+        aws_shadow_log_mqtt_error(TAG, event->error_handle);
         break;
     default:
         break;
