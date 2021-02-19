@@ -1,13 +1,12 @@
 #ifndef ESP_AWS_SHADOW_H_
 #define ESP_AWS_SHADOW_H_
 
+#include <cJSON.h>
 #include <esp_err.h>
 #include <mqtt_client.h>
-#include <cJSON.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 typedef struct esp_aws_shadow_handle *esp_aws_shadow_handle_t;

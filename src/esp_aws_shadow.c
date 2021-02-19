@@ -217,10 +217,10 @@ static void esp_aws_shadow_mqtt_subscribed(esp_aws_shadow_handle_t handle, esp_m
 }
 
 static void esp_aws_shadow_mqtt_data_get_op(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event,
-                                            const char *action, size_t action_len)
+                                            const char *action, uint16_t action_len)
 {
     const char *op = action + SHADOW_OP_GET_LENGTH;
-    size_t op_len = action_len - SHADOW_OP_GET_LENGTH;
+    uint16_t op_len = action_len - SHADOW_OP_GET_LENGTH;
 
     if (op_len == SHADOW_SUFFIX_ACCEPTED_LENGTH
         && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
@@ -245,10 +245,10 @@ static void esp_aws_shadow_mqtt_data_get_op(esp_aws_shadow_handle_t handle, esp_
 }
 
 static void esp_aws_shadow_mqtt_data_update_op(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event,
-                                               const char *action, size_t action_len)
+                                               const char *action, uint16_t action_len)
 {
     const char *op = action + SHADOW_OP_UPDATE_LENGTH;
-    size_t op_len = action_len - SHADOW_OP_UPDATE_LENGTH;
+    uint16_t op_len = action_len - SHADOW_OP_UPDATE_LENGTH;
 
     if (op_len == SHADOW_SUFFIX_ACCEPTED_LENGTH
         && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
@@ -282,10 +282,10 @@ static void esp_aws_shadow_mqtt_data_update_op(esp_aws_shadow_handle_t handle, e
 }
 
 static void esp_aws_shadow_mqtt_data_delete_op(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event,
-                                               const char *action, size_t action_len)
+                                               const char *action, uint16_t action_len)
 {
     const char *op = action + SHADOW_OP_DELETE_LENGTH;
-    size_t op_len = action_len - SHADOW_OP_DELETE_LENGTH;
+    uint16_t op_len = action_len - SHADOW_OP_DELETE_LENGTH;
 
     if (op_len == SHADOW_SUFFIX_ACCEPTED_LENGTH
         && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
@@ -312,11 +312,11 @@ static void esp_aws_shadow_mqtt_data_delete_op(esp_aws_shadow_handle_t handle, e
 
 static void esp_aws_shadow_mqtt_data(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
 {
-    if (event->topic_len > handle->topic_prefix_len
+    if (event->topic_len > handle->topic_prefix_len && event->topic_len < SHADOW_TOPIC_MAX_LENGTH
         && strncmp(event->topic, handle->topic_prefix, handle->topic_prefix_len) == 0)
     {
         const char *action = event->topic + handle->topic_prefix_len;
-        size_t action_len = event->topic_len - handle->topic_prefix_len;
+        uint16_t action_len = event->topic_len - handle->topic_prefix_len;
 
         ESP_LOGI(TAG, "%s action %.*s", handle->topic_prefix, action_len, action);
 
@@ -569,11 +569,11 @@ esp_err_t esp_aws_shadow_request_update(esp_aws_shadow_handle_t handle, const cJ
         return ESP_FAIL;
     }
 
-    size_t json_len = strlen(json);
+    uint16_t json_len = strlen(json);
     char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
     esp_aws_shadow_topic_name(handle, SHADOW_OP_UPDATE, topic_name, sizeof(topic_name));
 
-    ESP_LOGI(TAG, "sending %s (%zu bytes)", topic_name, json_len);
+    ESP_LOGI(TAG, "sending %s (%u bytes)", topic_name, json_len);
     int msg_id = esp_mqtt_client_publish(handle->client, topic_name, json, json_len, 1, 0);
     free(json);
 
