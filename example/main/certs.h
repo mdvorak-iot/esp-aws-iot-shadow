@@ -1,4 +1,5 @@
 #pragma once
+
 #include <stdint.h>
 
 #define CONFIG_AWS_IOT_MQTT_HOST "a23prmrbp23pol-ats.iot.eu-central-1.amazonaws.com"
