@@ -129,7 +129,7 @@ static esp_err_t esp_aws_shadow_event_dispatch_error(esp_aws_shadow_handle_t han
     return err;
 }
 
-static void esp_aws_shadow_mqtt_connected(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
+static void esp_aws_shadow_mqtt_connected(esp_aws_shadow_handle_t handle)
 {
     // Reset tracking
     xEventGroupClearBits(handle->event_group, SUBSCRIBED_ALL_BITS);
@@ -151,7 +151,7 @@ static void esp_aws_shadow_mqtt_connected(esp_aws_shadow_handle_t handle, esp_mq
     ESP_LOGI(TAG, "%s connected to mqtt server", handle->topic_prefix);
 }
 
-static void esp_aws_shadow_mqtt_disconnected(esp_aws_shadow_handle_t handle, esp_mqtt_event_handle_t event)
+static void esp_aws_shadow_mqtt_disconnected(esp_aws_shadow_handle_t handle)
 {
     xEventGroupClearBits(handle->event_group, CONNECTED_BIT | SUBSCRIBED_ALL_BITS);
 
@@ -340,7 +340,7 @@ static void esp_aws_shadow_mqtt_data(esp_aws_shadow_handle_t handle, esp_mqtt_ev
     }
 }
 
-static void esp_aws_shadow_mqtt_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+static void esp_aws_shadow_mqtt_handler(void *handler_args, __unused esp_event_base_t base, __unused int32_t event_id, void *event_data)
 {
     esp_aws_shadow_handle_t handle = (esp_aws_shadow_handle_t)handler_args;
     esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
@@ -348,11 +348,11 @@ static void esp_aws_shadow_mqtt_handler(void *handler_args, esp_event_base_t bas
     switch (event->event_id)
     {
     case MQTT_EVENT_CONNECTED:
-        esp_aws_shadow_mqtt_connected(handle, event);
+        esp_aws_shadow_mqtt_connected(handle);
         break;
 
     case MQTT_EVENT_DISCONNECTED:
-        esp_aws_shadow_mqtt_disconnected(handle, event);
+        esp_aws_shadow_mqtt_disconnected(handle);
         break;
 
     case MQTT_EVENT_SUBSCRIBED:
