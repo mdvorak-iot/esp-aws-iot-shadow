@@ -31,7 +31,8 @@ static const int SUBSCRIBED_DELETE_REJECTED_BIT = BIT18;
 static const int SUBSCRIBED_ALL_BITS =
     SUBSCRIBED_GET_ACCEPTED_BIT | SUBSCRIBED_GET_REJECTED_BIT | SUBSCRIBED_UPDATE_ACCEPTED_BIT | SUBSCRIBED_UPDATE_REJECTED_BIT | SUBSCRIBED_UPDATE_DELTA_BIT | SUBSCRIBED_DELETE_ACCEPTED_BIT | SUBSCRIBED_DELETE_REJECTED_BIT;
 
-struct aws_shadow_handle {
+struct aws_shadow_handle
+{
     esp_mqtt_client_handle_t client;
     esp_event_loop_handle_t event_loop;
     EventGroupHandle_t event_group;
@@ -42,7 +43,8 @@ struct aws_shadow_handle {
     char shadow_name[SHADOW_NAME_LENGTH_MAX];
 
     // For MQTT_EVENT_SUBSCRIBED tracking
-    struct topic_substriptions_t {
+    struct topic_substriptions_t
+    {
         int get_accepted_msg_id;
         int get_rejected_msg_id;
         int update_accepted_msg_id;
