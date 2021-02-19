@@ -166,7 +166,7 @@ static void setup()
     mqtt_cfg.client_id = CONFIG_AWS_IOT_MQTT_CLIENT_ID;
     mqtt_cfg.transport = MQTT_TRANSPORT_OVER_SSL;
     mqtt_cfg.protocol_ver = MQTT_PROTOCOL_V_3_1_1;
-    mqtt_cfg.cert_pem = (const char *)aws_root_ca_pem_start;
+    mqtt_cfg.cert_pem = (const char *)AWS_ROOT_CA_PEM;
     mqtt_cfg.client_cert_pem = (const char *)certificate_pem_crt_start;
     mqtt_cfg.client_key_pem = (const char *)private_pem_key_start;
 
