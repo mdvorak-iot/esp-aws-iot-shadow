@@ -480,14 +480,14 @@ esp_err_t aws_shadow_delete(aws_shadow_handle_t handle)
 }
 
 inline esp_err_t aws_shadow_handler_register(aws_shadow_handle_t handle, aws_shadow_event_t event_id,
-                                                 esp_event_handler_t event_handler, void *event_handler_arg)
+                                             esp_event_handler_t event_handler, void *event_handler_arg)
 {
     return aws_shadow_handler_instance_register(handle, event_id, event_handler, event_handler_arg, NULL);
 }
 
 inline esp_err_t aws_shadow_handler_instance_register(aws_shadow_handle_t handle, aws_shadow_event_t event_id,
-                                                          esp_event_handler_t event_handler, void *event_handler_arg,
-                                                          esp_event_handler_instance_t *handler_ctx_arg)
+                                                      esp_event_handler_t event_handler, void *event_handler_arg,
+                                                      esp_event_handler_instance_t *handler_ctx_arg)
 {
     if (handle == NULL)
     {
@@ -499,7 +499,7 @@ inline esp_err_t aws_shadow_handler_instance_register(aws_shadow_handle_t handle
 }
 
 inline esp_err_t aws_shadow_handler_instance_unregister(aws_shadow_handle_t handle, aws_shadow_event_t event_id,
-                                                            esp_event_handler_instance_t handler_ctx_arg)
+                                                        esp_event_handler_instance_t handler_ctx_arg)
 {
     if (handle == NULL)
     {
@@ -581,7 +581,7 @@ esp_err_t aws_shadow_request_update(aws_shadow_handle_t handle, const cJSON *roo
 }
 
 esp_err_t aws_shadow_request_update_reported(aws_shadow_handle_t handle, const cJSON *reported,
-                                                 const char *client_token)
+                                             const char *client_token)
 {
     if (handle == NULL || reported == NULL)
     {
@@ -590,11 +590,11 @@ esp_err_t aws_shadow_request_update_reported(aws_shadow_handle_t handle, const c
 
     cJSON *root = cJSON_CreateObject();
     cJSON *state = cJSON_AddObjectToObject(root, AWS_SHADOW_JSON_STATE);
-    cJSON_AddItemReferenceToObject(state, "reported", (cJSON *)reported); // Note: function is just missing const in declaration
+    cJSON_AddItemReferenceToObject(state, AWS_SHADOW_JSON_REPORTED, (cJSON *)reported); // Note: function is just missing const in declaration
 
     if (client_token != NULL)
     {
-        cJSON_AddStringToObject(root, "clientToken", client_token);
+        cJSON_AddStringToObject(root, AWS_SHADOW_JSON_CLIENT_TOKEN, client_token);
     }
 
     esp_err_t err = aws_shadow_request_update(handle, root);
@@ -603,7 +603,7 @@ esp_err_t aws_shadow_request_update_reported(aws_shadow_handle_t handle, const c
 }
 
 esp_err_t aws_shadow_request_update_desired(aws_shadow_handle_t handle, const cJSON *desired,
-                                                const char *client_token)
+                                            const char *client_token)
 {
     if (handle == NULL || desired == NULL)
     {
@@ -612,11 +612,11 @@ esp_err_t aws_shadow_request_update_desired(aws_shadow_handle_t handle, const cJ
 
     cJSON *root = cJSON_CreateObject();
     cJSON *state = cJSON_AddObjectToObject(root, AWS_SHADOW_JSON_STATE);
-    cJSON_AddItemReferenceToObject(state, "desired", (cJSON *)desired); // Note: function is just missing const in declaration
+    cJSON_AddItemReferenceToObject(state, AWS_SHADOW_JSON_DESIRED, (cJSON *)desired); // Note: function is just missing const in declaration
 
     if (client_token != NULL)
     {
-        cJSON_AddStringToObject(root, "clientToken", client_token);
+        cJSON_AddStringToObject(root, AWS_SHADOW_JSON_CLIENT_TOKEN, client_token);
     }
 
     esp_err_t err = aws_shadow_request_update(handle, root);

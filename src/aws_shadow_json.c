@@ -22,10 +22,10 @@ cJSON *esp_aws_shadow_parse_update_accepted(const char *data, size_t data_len, a
     cJSON *state = cJSON_GetObjectItemCaseSensitive(root, AWS_SHADOW_JSON_STATE);
     // Note: all cJSON methods are NULL-safe
     output->root = root;
-    output->desired = cJSON_GetObjectItemCaseSensitive(state, "desired");
-    output->reported = cJSON_GetObjectItemCaseSensitive(state, "reported");
-    output->delta = cJSON_GetObjectItemCaseSensitive(state, "delta");
-    output->client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, "clientToken"));
+    output->desired = cJSON_GetObjectItemCaseSensitive(state, AWS_SHADOW_JSON_DESIRED);
+    output->reported = cJSON_GetObjectItemCaseSensitive(state, AWS_SHADOW_JSON_REPORTED);
+    output->delta = cJSON_GetObjectItemCaseSensitive(state, AWS_SHADOW_JSON_DELTA);
+    output->client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, AWS_SHADOW_JSON_CLIENT_TOKEN));
 
     return root;
 }
@@ -36,7 +36,7 @@ cJSON *esp_aws_shadow_parse_update_delta(const char *data, size_t data_len, aws_
     // Note: delta document have attributes directly under state attribute
     output->root = root;
     output->delta = cJSON_GetObjectItemCaseSensitive(root, AWS_SHADOW_JSON_STATE);
-    output->client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, "clientToken"));
+    output->client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, AWS_SHADOW_JSON_CLIENT_TOKEN));
     return root;
 }
 
@@ -44,11 +44,11 @@ cJSON *esp_aws_shadow_parse_error(const char *data, size_t data_len, aws_shadow_
 {
     cJSON *root = esp_aws_shadow_parse_json(data, data_len);
 
-    error->code = cJSON_GetObjectItemCaseSensitive(root, "code")->valueint;
-    error->message = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, "message"));
+    error->code = cJSON_GetObjectItemCaseSensitive(root, AWS_SHADOW_JSON_CODE)->valueint;
+    error->message = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, AWS_SHADOW_JSON_MESSAGE));
 
     output->root = root;
-    output->client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, "clientToken"));
+    output->client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, AWS_SHADOW_JSON_CLIENT_TOKEN));
     output->error = error;
 
     return root;

@@ -5,13 +5,20 @@
 #include <esp_err.h>
 #include <mqtt_client.h>
 
+#define AWS_SHADOW_JSON_STATE "state"
+#define AWS_SHADOW_JSON_DESIRED "desired"
+#define AWS_SHADOW_JSON_REPORTED "reported"
+#define AWS_SHADOW_JSON_DELTA "delta"
+#define AWS_SHADOW_JSON_VERSION "version"
+#define AWS_SHADOW_JSON_CLIENT_TOKEN "clientToken"
+#define AWS_SHADOW_JSON_MESSAGE "message"
+#define AWS_SHADOW_JSON_CODE "code"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 ESP_EVENT_DECLARE_BASE(AWS_SHADOW_EVENT);
-
-#define AWS_SHADOW_JSON_STATE "state"
 
 typedef struct aws_shadow_handle *aws_shadow_handle_t;
 
