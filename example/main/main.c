@@ -104,7 +104,10 @@ static void shadow_updated(const cJSON *state)
 static void shadow_event_handler(__unused void *handler_args, __unused esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     aws_shadow_event_data_t *event = (aws_shadow_event_data_t *)event_data;
-    ESP_LOGI(TAG, "received shadow event %d for %s", event_id, event->thing_name);
+    cJSON *version_obj = cJSON_GetObjectItemCaseSensitive(event->root, AWS_SHADOW_JSON_VERSION);
+    const char *client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(event->root, AWS_SHADOW_JSON_CLIENT_TOKEN));
+
+    ESP_LOGI(TAG, "received shadow event %d for %s/%s, version %.0f, client_token '%s'", event_id, event->thing_name, event->shadow_name, version_obj ? version_obj->valuedouble : -1, client_token ? client_token : "");
 
     if (event->event_id == AWS_SHADOW_EVENT_UPDATE_ACCEPTED || event->event_id == AWS_SHADOW_EVENT_UPDATE_DELTA)
     {
