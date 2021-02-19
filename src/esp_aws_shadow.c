@@ -430,7 +430,7 @@ esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing
     }
 
     result->topic_prefix_len = strlen(result->topic_prefix);
-    if (result->topic_prefix == 0)
+    if (result->topic_prefix_len == 0)
     {
         ESP_LOGE(TAG, "failed to format topic prefix for '%s' '%s'", thing_name, shadow_name ? shadow_name : "");
         esp_aws_shadow_delete(result);
