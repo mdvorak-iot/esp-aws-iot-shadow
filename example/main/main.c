@@ -1,13 +1,13 @@
+#include "esp_aws_shadow.h"
 #include <esp_err.h>
 #include <esp_log.h>
+#include <esp_ota_ops.h>
+#include <esp_tls.h>
+#include <esp_wifi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include <nvs_flash.h>
 #include <mqtt_client.h>
-#include <esp_tls.h>
-#include <esp_ota_ops.h>
-#include <esp_wifi.h>
-#include "esp_aws_shadow.h"
+#include <nvs_flash.h>
 
 // TODO
 #include "certs.h"
@@ -18,7 +18,7 @@ static bool mqtt_started = false;
 static esp_mqtt_client_handle_t mqtt_client = NULL;
 static esp_aws_shadow_handle_t shadow_client = NULL;
 
-static void wifi_event_handler(void *handler_args, esp_event_base_t event_base, int32_t event_id, void *event_data)
+static void wifi_event_handler(__unused void *handler_args, esp_event_base_t event_base, int32_t event_id, __unused void *event_data)
 {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
     {
@@ -69,14 +69,14 @@ static void mqtt_error_handler(const esp_mqtt_error_codes_t *error_handle)
     }
 }
 
-static void mqtt_event_handler(void *handler_args, esp_event_base_t event_base, int32_t event_id, void *event_data)
+static void mqtt_event_handler(__unused void *handler_args, __unused esp_event_base_t event_base, __unused int32_t event_id, void *event_data)
 {
     esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
 
     switch (event->event_id)
     {
     case MQTT_EVENT_DATA:
-        // Verbose output for diagnostics, should be ommited in an actual code
+        // Verbose output for diagnostics, should be omitted in an actual code
         ESP_LOGI(TAG, "topic=%.*s, data=%.*s", event->topic_len, event->topic, event->data_len, event->data);
         break;
 
@@ -101,7 +101,7 @@ static void shadow_updated(const cJSON *state)
     }
 }
 
-static void shadow_event_handler(void *handler_args, esp_event_base_t event_base, int32_t event_id, void *event_data)
+static void shadow_event_handler(__unused void *handler_args, __unused esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     aws_shadow_event_data_t *event = (aws_shadow_event_data_t *)event_data;
     ESP_LOGI(TAG, "received shadow event %d for %s", event_id, event->thing_name);
@@ -142,7 +142,7 @@ static void setup()
     // Events
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    // Initalize WiFi
+    // Initialize WiFi
     ESP_ERROR_CHECK(esp_netif_init());
     esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
     assert(sta_netif);

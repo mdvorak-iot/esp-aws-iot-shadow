@@ -402,7 +402,7 @@ esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing
 
     result->client = client;
     result->event_group = xEventGroupCreate();
-    configASSERT(result->event_group);
+    assert(result->event_group);
 
     esp_event_loop_args_t event_loop_args = {
         .queue_size = 1,
@@ -590,7 +590,7 @@ esp_err_t esp_aws_shadow_request_update_reported(esp_aws_shadow_handle_t handle,
 
     cJSON *root = cJSON_CreateObject();
     cJSON *state = cJSON_AddObjectToObject(root, "state");
-    cJSON_AddItemReferenceToObject(state, "reported", (cJSON *)reported);// Note: function is just missing const in declaration
+    cJSON_AddItemReferenceToObject(state, "reported", (cJSON *)reported); // Note: function is just missing const in declaration
 
     if (client_token != NULL)
     {
@@ -598,7 +598,7 @@ esp_err_t esp_aws_shadow_request_update_reported(esp_aws_shadow_handle_t handle,
     }
 
     esp_err_t err = esp_aws_shadow_request_update(handle, root);
-    cJSON_Delete(root);// Note: This does not release input json object
+    cJSON_Delete(root); // Note: This does not release input json object
     return err;
 }
 
@@ -612,7 +612,7 @@ esp_err_t esp_aws_shadow_request_update_desired(esp_aws_shadow_handle_t handle, 
 
     cJSON *root = cJSON_CreateObject();
     cJSON *state = cJSON_AddObjectToObject(root, "state");
-    cJSON_AddItemReferenceToObject(state, "desired", (cJSON *)desired);// Note: function is just missing const in declaration
+    cJSON_AddItemReferenceToObject(state, "desired", (cJSON *)desired); // Note: function is just missing const in declaration
 
     if (client_token != NULL)
     {
@@ -620,6 +620,6 @@ esp_err_t esp_aws_shadow_request_update_desired(esp_aws_shadow_handle_t handle, 
     }
 
     esp_err_t err = esp_aws_shadow_request_update(handle, root);
-    cJSON_Delete(root);// Note: This does not release input json object
+    cJSON_Delete(root); // Note: This does not release input json object
     return err;
 }

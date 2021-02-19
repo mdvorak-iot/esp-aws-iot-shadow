@@ -11,7 +11,7 @@ static cJSON *esp_aws_shadow_parse_json(const char *data, size_t data_len)
     // This is unsafe, if invalid json would be received, this might read memory out of bounds
     const char *parse_end = NULL;
     cJSON *root = cJSON_ParseWithOpts(data, &parse_end, 0);
-    configASSERT(parse_end <= data + data_len); // At least do sanity check
+    assert(parse_end <= data + data_len); // At least do sanity check
 #endif
     return root;
 }
