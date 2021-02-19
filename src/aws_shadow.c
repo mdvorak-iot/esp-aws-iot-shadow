@@ -450,6 +450,7 @@ esp_err_t aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing_nam
 
     // Success
     *handle = result;
+    ESP_LOGI(TAG, "initialized %s", result->topic_prefix);
     return ESP_OK;
 }
 
