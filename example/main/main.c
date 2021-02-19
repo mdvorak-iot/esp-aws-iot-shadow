@@ -52,7 +52,10 @@ static void mqtt_error_handler(const esp_mqtt_error_codes_t *error_handle)
     {
     case MQTT_ERROR_TYPE_ESP_TLS:
         //case MQTT_ERROR_TYPE_TCP_TRANSPORT:
-        ESP_LOGW(TAG, "connection tls error: 0x%x (%s), stack error number 0x%x", error_handle->esp_tls_last_esp_err, esp_err_to_name(error_handle->esp_tls_last_esp_err), error_handle->esp_tls_stack_err);
+        ESP_LOGW(TAG, "connection tls error: 0x%x (%s), stack error number 0x%x",
+                 error_handle->esp_tls_last_esp_err,
+                 esp_err_to_name(error_handle->esp_tls_last_esp_err),
+                 error_handle->esp_tls_stack_err);
         //ESP_LOGW(TAG, "connection tls error: 0x%x, stack error number 0x%x, last captured errno: %d (%s)", error_handle->esp_tls_last_esp_err, error_handle->esp_tls_stack_err, error_handle->esp_transport_sock_errno, strerror(error_handle->esp_transport_sock_errno));
         break;
 

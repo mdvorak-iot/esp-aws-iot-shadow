@@ -46,15 +46,20 @@ typedef struct
     const aws_shadow_event_error_t *error;
 } aws_shadow_event_data_t;
 
-esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing_name, const char *shadow_name, esp_aws_shadow_handle_t *handle);
+esp_err_t esp_aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing_name, const char *shadow_name,
+                              esp_aws_shadow_handle_t *handle);
 
 esp_err_t esp_aws_shadow_delete(esp_aws_shadow_handle_t handle);
 
-esp_err_t esp_aws_shadow_handler_register(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id, esp_event_handler_t event_handler, void *event_handler_arg);
+esp_err_t esp_aws_shadow_handler_register(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id,
+                                          esp_event_handler_t event_handler, void *event_handler_arg);
 
-esp_err_t esp_aws_shadow_handler_instance_register(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id, esp_event_handler_t event_handler, void *event_handler_arg, esp_event_handler_instance_t *handler_ctx_arg);
+esp_err_t esp_aws_shadow_handler_instance_register(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id,
+                                                   esp_event_handler_t event_handler, void *event_handler_arg,
+                                                   esp_event_handler_instance_t *handler_ctx_arg);
 
-esp_err_t esp_aws_shadow_handler_instance_unregister(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id, esp_event_handler_instance_t handler_ctx_arg);
+esp_err_t esp_aws_shadow_handler_instance_unregister(esp_aws_shadow_handle_t handle, aws_shadow_event_t event_id,
+                                                     esp_event_handler_instance_t handler_ctx_arg);
 
 bool esp_aws_shadow_is_ready(esp_aws_shadow_handle_t handle);
 
@@ -64,9 +69,11 @@ esp_err_t esp_aws_shadow_request_get(esp_aws_shadow_handle_t handle);
 
 esp_err_t esp_aws_shadow_request_update(esp_aws_shadow_handle_t handle, const cJSON *root);
 
-esp_err_t esp_aws_shadow_request_update_reported(esp_aws_shadow_handle_t handle, const cJSON *reported, const char *client_token);
+esp_err_t esp_aws_shadow_request_update_reported(esp_aws_shadow_handle_t handle, const cJSON *reported,
+                                                 const char *client_token);
 
-esp_err_t esp_aws_shadow_request_update_desired(esp_aws_shadow_handle_t handle, const cJSON *desired, const char *client_token);
+esp_err_t esp_aws_shadow_request_update_desired(esp_aws_shadow_handle_t handle, const cJSON *desired,
+                                                const char *client_token);
 
 esp_err_t esp_aws_shadow_request_delete(esp_aws_shadow_handle_t handle);
 
