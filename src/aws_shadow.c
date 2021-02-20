@@ -43,7 +43,7 @@ struct aws_shadow_handle
     char shadow_name[SHADOW_NAME_LENGTH_MAX];
 
     // For MQTT_EVENT_SUBSCRIBED tracking
-    struct topic_substriptions_t
+    struct topic_subscriptions_t
     {
         int get_accepted_msg_id;
         int get_rejected_msg_id;
@@ -52,7 +52,7 @@ struct aws_shadow_handle
         int update_delta_msg_id;
         int delete_accepted_msg_id;
         int delete_rejected_msg_id;
-    } topic_substriptions;
+    } topic_subscriptions;
 };
 
 inline static char *esp_aws_shadow_topic_name(aws_shadow_handle_t handle, const char *topic_suffix,
@@ -135,18 +135,18 @@ static void esp_aws_shadow_mqtt_connected(aws_shadow_handle_t handle)
 {
     // Reset tracking
     xEventGroupClearBits(handle->event_group, SUBSCRIBED_ALL_BITS);
-    memset(&handle->topic_substriptions, 0, sizeof(handle->topic_substriptions));
+    memset(&handle->topic_subscriptions, 0, sizeof(handle->topic_subscriptions));
 
     // Subscribe
     char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
 
-    handle->topic_substriptions.get_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_GET SHADOW_SUFFIX_ACCEPTED), topic_name, sizeof(topic_name)), 0);
-    handle->topic_substriptions.get_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_GET SHADOW_SUFFIX_REJECTED), topic_name, sizeof(topic_name)), 0);
-    handle->topic_substriptions.update_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_UPDATE SHADOW_SUFFIX_ACCEPTED), topic_name, sizeof(topic_name)), 0);
-    handle->topic_substriptions.update_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_UPDATE SHADOW_SUFFIX_REJECTED), topic_name, sizeof(topic_name)), 0);
-    handle->topic_substriptions.update_delta_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_UPDATE SHADOW_SUFFIX_DELTA), topic_name, sizeof(topic_name)), 0);
-    handle->topic_substriptions.delete_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_DELETE SHADOW_SUFFIX_ACCEPTED), topic_name, sizeof(topic_name)), 0);
-    handle->topic_substriptions.delete_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_DELETE SHADOW_SUFFIX_REJECTED), topic_name, sizeof(topic_name)), 0);
+    handle->topic_subscriptions.get_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_GET SHADOW_SUFFIX_ACCEPTED), topic_name, sizeof(topic_name)), 0);
+    handle->topic_subscriptions.get_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_GET SHADOW_SUFFIX_REJECTED), topic_name, sizeof(topic_name)), 0);
+    handle->topic_subscriptions.update_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_UPDATE SHADOW_SUFFIX_ACCEPTED), topic_name, sizeof(topic_name)), 0);
+    handle->topic_subscriptions.update_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_UPDATE SHADOW_SUFFIX_REJECTED), topic_name, sizeof(topic_name)), 0);
+    handle->topic_subscriptions.update_delta_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_UPDATE SHADOW_SUFFIX_DELTA), topic_name, sizeof(topic_name)), 0);
+    handle->topic_subscriptions.delete_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_DELETE SHADOW_SUFFIX_ACCEPTED), topic_name, sizeof(topic_name)), 0);
+    handle->topic_subscriptions.delete_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, esp_aws_shadow_topic_name(handle, (SHADOW_OP_DELETE SHADOW_SUFFIX_REJECTED), topic_name, sizeof(topic_name)), 0);
 
     // Connected state
     xEventGroupSetBits(handle->event_group, CONNECTED_BIT);
@@ -165,37 +165,37 @@ static void esp_aws_shadow_mqtt_subscribed(aws_shadow_handle_t handle, esp_mqtt_
 {
     EventBits_t bits = 0;
 
-    if (event->msg_id == handle->topic_substriptions.get_accepted_msg_id)
+    if (event->msg_id == handle->topic_subscriptions.get_accepted_msg_id)
     {
         ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_GET SHADOW_SUFFIX_ACCEPTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_GET_ACCEPTED_BIT);
     }
-    else if (event->msg_id == handle->topic_substriptions.get_rejected_msg_id)
+    else if (event->msg_id == handle->topic_subscriptions.get_rejected_msg_id)
     {
         ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_GET SHADOW_SUFFIX_REJECTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_GET_REJECTED_BIT);
     }
-    else if (event->msg_id == handle->topic_substriptions.update_accepted_msg_id)
+    else if (event->msg_id == handle->topic_subscriptions.update_accepted_msg_id)
     {
         ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_UPDATE SHADOW_SUFFIX_ACCEPTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_ACCEPTED_BIT);
     }
-    else if (event->msg_id == handle->topic_substriptions.update_rejected_msg_id)
+    else if (event->msg_id == handle->topic_subscriptions.update_rejected_msg_id)
     {
         ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_UPDATE SHADOW_SUFFIX_REJECTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_REJECTED_BIT);
     }
-    else if (event->msg_id == handle->topic_substriptions.update_delta_msg_id)
+    else if (event->msg_id == handle->topic_subscriptions.update_delta_msg_id)
     {
         ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_UPDATE SHADOW_SUFFIX_DELTA, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_DELTA_BIT);
     }
-    else if (event->msg_id == handle->topic_substriptions.delete_accepted_msg_id)
+    else if (event->msg_id == handle->topic_subscriptions.delete_accepted_msg_id)
     {
         ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_DELETE SHADOW_SUFFIX_ACCEPTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_DELETE_ACCEPTED_BIT);
     }
-    else if (event->msg_id == handle->topic_substriptions.delete_rejected_msg_id)
+    else if (event->msg_id == handle->topic_subscriptions.delete_rejected_msg_id)
     {
         ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_DELETE SHADOW_SUFFIX_REJECTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_DELETE_REJECTED_BIT);
