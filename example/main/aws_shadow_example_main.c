@@ -105,6 +105,10 @@ static void shadow_event_handler(__unused void *handler_args, __unused esp_event
 
 static void setup()
 {
+    esp_log_level_set("*", ESP_LOG_INFO);
+    esp_log_level_set("aws_shadow", ESP_LOG_DEBUG);
+    esp_log_level_set(TAG, ESP_LOG_DEBUG);
+
     // Initialize NVS
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
