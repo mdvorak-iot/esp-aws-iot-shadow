@@ -58,8 +58,22 @@ struct aws_shadow_handle
 inline static char *esp_aws_shadow_topic_name(aws_shadow_handle_t handle, const char *topic_suffix,
                                               char *topic_buf, uint16_t topic_buf_len)
 {
+    assert(handle);
+    assert(topic_suffix);
+    assert(topic_buf);
+    assert(topic_buf_len > 0);
+
+    size_t topic_suffix_len = strlen(topic_suffix);
+
+    // Validate size (include terminating \0 char), to prevent buffer overflow
+    if (handle->topic_prefix_len + 1 >= topic_buf_len)
+    {
+        topic_buf[0] = '\0';
+        return NULL;
+    }
+
     memcpy(topic_buf, handle->topic_prefix, handle->topic_prefix_len);
-    strncpy(topic_buf + handle->topic_prefix_len, topic_suffix, topic_buf_len - handle->topic_prefix_len);
+    memcpy(topic_buf, topic_suffix, topic_suffix_len + 1); // topic_suffix_len does not include terminating null char
     return topic_buf;
 }
 
@@ -537,9 +551,12 @@ bool aws_shadow_wait_for_ready(aws_shadow_handle_t handle, TickType_t ticks_to_w
 esp_err_t aws_shadow_request_get(aws_shadow_handle_t handle)
 {
     char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
-    esp_aws_shadow_topic_name(handle, SHADOW_OP_GET, topic_name, sizeof(topic_name));
-    ESP_LOGI(TAG, "sending %s", topic_name);
+    if (esp_aws_shadow_topic_name(handle, SHADOW_OP_GET, topic_name, sizeof(topic_name)) == NULL)
+    {
+        return ESP_ERR_INVALID_SIZE; // buffer overflow
+    }
 
+    ESP_LOGI(TAG, "sending %s", topic_name);
     int msg_id = esp_mqtt_client_publish(handle->client, topic_name, NULL, 0, 1, 0);
     return msg_id != -1 ? ESP_OK : ESP_FAIL;
 }
@@ -552,7 +569,10 @@ esp_err_t aws_shadow_request_delete(aws_shadow_handle_t handle)
     }
 
     char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
-    esp_aws_shadow_topic_name(handle, SHADOW_OP_DELETE, topic_name, sizeof(topic_name));
+    if (esp_aws_shadow_topic_name(handle, SHADOW_OP_DELETE, topic_name, sizeof(topic_name)) == NULL)
+    {
+        return ESP_ERR_INVALID_SIZE; // buffer overflow
+    }
 
     ESP_LOGI(TAG, "sending %s", topic_name);
     int msg_id = esp_mqtt_client_publish(handle->client, topic_name, NULL, 0, 1, 0);
@@ -574,7 +594,10 @@ esp_err_t aws_shadow_request_update(aws_shadow_handle_t handle, const cJSON *roo
 
     uint16_t json_len = strlen(json);
     char topic_name[SHADOW_TOPIC_MAX_LENGTH] = {};
-    esp_aws_shadow_topic_name(handle, SHADOW_OP_UPDATE, topic_name, sizeof(topic_name));
+    if (esp_aws_shadow_topic_name(handle, SHADOW_OP_UPDATE, topic_name, sizeof(topic_name)) == NULL)
+    {
+        return ESP_ERR_INVALID_SIZE; // buffer overflow
+    }
 
     ESP_LOGI(TAG, "sending %s (%u bytes)", topic_name, json_len);
     int msg_id = esp_mqtt_client_publish(handle->client, topic_name, json, json_len, 1, 0);
