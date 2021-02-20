@@ -66,14 +66,15 @@ inline static char *esp_aws_shadow_topic_name(aws_shadow_handle_t handle, const 
     size_t topic_suffix_len = strlen(topic_suffix);
 
     // Validate size (include terminating \0 char), to prevent buffer overflow
-    if (handle->topic_prefix_len + 1 >= topic_buf_len)
+    if (handle->topic_prefix_len + topic_suffix_len + 1 >= topic_buf_len)
     {
         topic_buf[0] = '\0';
         return NULL;
     }
 
     memcpy(topic_buf, handle->topic_prefix, handle->topic_prefix_len);
-    memcpy(topic_buf, topic_suffix, topic_suffix_len + 1); // topic_suffix_len does not include terminating null char
+    memcpy(topic_buf + handle->topic_prefix_len, topic_suffix, topic_suffix_len + 1); // topic_suffix_len does not include terminating null char
+    ESP_LOGD(TAG, "topic name: '%s'", topic_buf);
     return topic_buf;
 }
 
