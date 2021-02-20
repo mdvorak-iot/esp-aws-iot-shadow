@@ -7,7 +7,7 @@
 #include <freertos/event_groups.h>
 #include <string.h>
 
-static const char TAG[] = "esp_aws_shadow";
+static const char TAG[] = "aws_shadow";
 
 ESP_EVENT_DEFINE_BASE(AWS_SHADOW_EVENT);
 
@@ -179,7 +179,12 @@ static void esp_aws_shadow_mqtt_subscribed(aws_shadow_handle_t handle, esp_mqtt_
 {
     EventBits_t bits = 0;
 
-    if (event->msg_id == handle->topic_subscriptions.get_accepted_msg_id)
+    if (event->msg_id == -1)
+    {
+        ESP_LOGD(TAG, "invalid subscription msg_id");
+        return;
+    }
+    else if (event->msg_id == handle->topic_subscriptions.get_accepted_msg_id)
     {
         ESP_LOGD(TAG, "subscribed to %s" SHADOW_OP_GET SHADOW_SUFFIX_ACCEPTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_GET_ACCEPTED_BIT);
