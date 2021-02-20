@@ -129,7 +129,20 @@ static void setup()
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, wifi_event_handler, NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, wifi_event_handler, NULL, NULL));
 
-    // NOTE this assumes we have WiFi already stored in NVS
+    // Configure Wi-Fi, if set
+#ifdef CONFIG_EXAMPLE_WIFI_SSID
+    wifi_config_t wifi_cfg = {};
+    strncpy((char *)wifi_cfg.sta.ssid, CONFIG_EXAMPLE_WIFI_SSID, sizeof(wifi_cfg.sta.ssid) - 1);
+#ifdef CONFIG_EXAMPLE_WIFI_PASSWORD
+    strncpy((char *)wifi_cfg.sta.password, CONFIG_EXAMPLE_WIFI_PASSWORD, sizeof(wifi_cfg.sta.password) - 1);
+#endif
+
+    if (wifi_cfg.sta.ssid[0] != '\0')
+    {
+        ESP_LOGI(TAG, "using pre-compiled wifi credentials: ssid=" CONFIG_EXAMPLE_WIFI_SSID);
+        ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_cfg));
+    }
+#endif
 
     // MQTT
     esp_mqtt_client_config_t mqtt_cfg = {};
