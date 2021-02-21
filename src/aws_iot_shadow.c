@@ -17,6 +17,12 @@ ESP_EVENT_DEFINE_BASE(AWS_IOT_SHADOW_EVENT);
         .handle = handle_,                                        \
         .thing_name = handle->thing_name,                         \
         .shadow_name = handle->shadow_name,                       \
+        .root = NULL,                                             \
+        .desired = NULL,                                          \
+        .reported = NULL,                                         \
+        .delta = NULL,                                            \
+        .client_token = NULL,                                     \
+        .error = NULL,                                            \
     }
 
 static const int CONNECTED_BIT = BIT0;
@@ -96,16 +102,18 @@ static esp_err_t aws_iot_shadow_event_dispatch_accepted(aws_iot_shadow_handle_t 
 {
     aws_iot_shadow_event_data_t shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, event_id);
 
-    // Parse and publish data (delete after dispatch)
-    cJSON *root = aws_iot_shadow_parse_update_accepted(event->data, event->data_len, &shadow_event);
+    // Parse
+    cJSON *root = aws_iot_shadow_parse_accepted(event->data, event->data_len, &shadow_event);
     if (root == NULL)
     {
         ESP_LOGW(TAG, "failed to parse accepted json document");
     }
 
+    // Publish specific accepted event
     esp_err_t err = aws_iot_shadow_event_dispatch(handle->event_loop, &shadow_event);
-    cJSON_Delete(root);
 
+    // Delete and return
+    cJSON_Delete(root);
     return err;
 }
 
@@ -114,16 +122,18 @@ static esp_err_t aws_iot_shadow_event_dispatch_update_delta(aws_iot_shadow_handl
 {
     aws_iot_shadow_event_data_t shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_IOT_SHADOW_EVENT_UPDATE_DELTA);
 
-    // Parse and publish data (delete after dispatch)
+    // Parse
     cJSON *root = aws_iot_shadow_parse_update_delta(event->data, event->data_len, &shadow_event);
     if (root == NULL)
     {
         ESP_LOGW(TAG, "failed to parse delta json document");
     }
 
+    // Publish delta event
     esp_err_t err = aws_iot_shadow_event_dispatch(handle->event_loop, &shadow_event);
-    cJSON_Delete(root);
 
+    // Delete and return
+    cJSON_Delete(root);
     return err;
 }
 

@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-cJSON *aws_iot_shadow_parse_update_accepted(const char *data, size_t data_len, aws_iot_shadow_event_data_t *output);
+cJSON *aws_iot_shadow_parse_accepted(const char *data, size_t data_len, aws_iot_shadow_event_data_t *output);
 
 cJSON *aws_iot_shadow_parse_update_delta(const char *data, size_t data_len, aws_iot_shadow_event_data_t *output);
 
