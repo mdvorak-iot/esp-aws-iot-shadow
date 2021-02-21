@@ -8,3 +8,4 @@ build/
 sdkconfig
 sdkconfig.old
 *.code-workspace
+example/partitions.csv
