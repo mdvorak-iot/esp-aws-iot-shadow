@@ -163,7 +163,7 @@ static void setup()
     ESP_ERROR_CHECK(esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, mqtt_event_handler, NULL));
 
     // Shadow
-    ESP_ERROR_CHECK(aws_shadow_init(mqtt_client, CONFIG_AWS_IOT_THING_NAME, NULL, &shadow_client));
+    ESP_ERROR_CHECK(aws_shadow_init(mqtt_client, aws_shadow_thing_name(mqtt_cfg.client_id), NULL, &shadow_client));
     ESP_ERROR_CHECK(aws_shadow_handler_register(shadow_client, AWS_SHADOW_EVENT_ANY, shadow_event_handler, NULL));
 
     // Connect

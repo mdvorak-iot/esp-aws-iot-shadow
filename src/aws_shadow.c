@@ -395,6 +395,23 @@ static void esp_aws_shadow_mqtt_handler(void *handler_args, __unused esp_event_b
     }
 }
 
+const char *aws_shadow_thing_name(const char *client_id)
+{
+    if (client_id == NULL)
+    {
+        return NULL;
+    }
+
+    // Parse thing_name
+    const char *thing_name = strstr(client_id, ":thing/");
+    if (thing_name != NULL)
+    {
+        // strstr returns pointer to searched string start
+        thing_name += strlen(":thing/");
+    }
+    return thing_name;
+}
+
 esp_err_t aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing_name, const char *shadow_name,
                           aws_shadow_handle_t *handle)
 {

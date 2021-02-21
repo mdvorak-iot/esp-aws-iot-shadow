@@ -61,6 +61,15 @@ esp_err_t aws_shadow_init(esp_mqtt_client_handle_t client, const char *thing_nam
 
 esp_err_t aws_shadow_delete(aws_shadow_handle_t handle);
 
+/**
+ * @brief Find a thing name from a MQTT client_id.
+ *
+ * @param client_id MQTT client ID in format `arn:aws:iot:region:AWS-account-ID:thing/Thing-name`.
+ * @return Pointer to thing name start in client_id or NULL if not found.
+ * Does not allocate new string, references original client_id param.
+ */
+const char *aws_shadow_thing_name(const char *client_id);
+
 esp_err_t aws_shadow_handler_register(aws_shadow_handle_t handle, aws_shadow_event_t event_id,
                                       esp_event_handler_t event_handler, void *event_handler_arg);
 
