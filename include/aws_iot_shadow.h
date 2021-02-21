@@ -24,15 +24,24 @@ typedef struct aws_iot_shadow_handle *aws_iot_shadow_handle_t;
 
 typedef enum
 {
-    AWS_IOT_SHADOW_EVENT_ANY = ESP_EVENT_ANY_ID, /** Handle any event */
-    AWS_IOT_SHADOW_EVENT_READY = 0,              /** Connected and initialized */
-    AWS_IOT_SHADOW_EVENT_DISCONNECTED,           /** Disconnected from the server */
-    AWS_IOT_SHADOW_EVENT_ERROR,                  /** Received error to an action */
-    AWS_IOT_SHADOW_EVENT_GET_ACCEPTED,           /** Received a get state */
-    AWS_IOT_SHADOW_EVENT_DELETE_ACCEPTED,        /** Shadow was deleted */
-    AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED,        /** Received an updated state */
-    AWS_IOT_SHADOW_EVENT_UPDATE_DELTA,           /** Received a state delta */
-    AWS_IOT_SHADOW_EVENT_MAX,                    /** Invalid event ID */
+    /** Handle any event */
+    AWS_IOT_SHADOW_EVENT_ANY = ESP_EVENT_ANY_ID,
+    /** Connected and initialized */
+    AWS_IOT_SHADOW_EVENT_READY = 0,
+    /** Disconnected from the server */
+    AWS_IOT_SHADOW_EVENT_DISCONNECTED,
+    /** Received error to an action */
+    AWS_IOT_SHADOW_EVENT_ERROR,
+    /** Received a get state */
+    AWS_IOT_SHADOW_EVENT_GET_ACCEPTED,
+    /** Shadow was deleted */
+    AWS_IOT_SHADOW_EVENT_DELETE_ACCEPTED,
+    /** Received an updated state */
+    AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED,
+    /** Received a state delta */
+    AWS_IOT_SHADOW_EVENT_UPDATE_DELTA,
+    /** Invalid event ID */
+    AWS_IOT_SHADOW_EVENT_MAX,
 } aws_iot_shadow_event_t;
 
 typedef struct
