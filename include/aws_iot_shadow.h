@@ -56,7 +56,7 @@ typedef struct
 } aws_iot_shadow_event_data_t;
 
 esp_err_t aws_iot_shadow_init(esp_mqtt_client_handle_t client, const char *thing_name, const char *shadow_name,
-                          aws_iot_shadow_handle_t *handle);
+                              aws_iot_shadow_handle_t *handle);
 
 esp_err_t aws_iot_shadow_delete(aws_iot_shadow_handle_t handle);
 
@@ -70,14 +70,14 @@ esp_err_t aws_iot_shadow_delete(aws_iot_shadow_handle_t handle);
 const char *aws_iot_shadow_thing_name(const char *client_id);
 
 esp_err_t aws_iot_shadow_handler_register(aws_iot_shadow_handle_t handle, aws_iot_shadow_event_t event_id,
-                                      esp_event_handler_t event_handler, void *event_handler_arg);
+                                          esp_event_handler_t event_handler, void *event_handler_arg);
 
 esp_err_t aws_iot_shadow_handler_instance_register(aws_iot_shadow_handle_t handle, aws_iot_shadow_event_t event_id,
-                                               esp_event_handler_t event_handler, void *event_handler_arg,
-                                               esp_event_handler_instance_t *handler_ctx_arg);
+                                                   esp_event_handler_t event_handler, void *event_handler_arg,
+                                                   esp_event_handler_instance_t *handler_ctx_arg);
 
 esp_err_t aws_iot_shadow_handler_instance_unregister(aws_iot_shadow_handle_t handle, aws_iot_shadow_event_t event_id,
-                                                 esp_event_handler_instance_t handler_ctx_arg);
+                                                     esp_event_handler_instance_t handler_ctx_arg);
 
 bool aws_iot_shadow_is_ready(aws_iot_shadow_handle_t handle);
 
@@ -88,10 +88,10 @@ esp_err_t aws_iot_shadow_request_get(aws_iot_shadow_handle_t handle);
 esp_err_t aws_iot_shadow_request_update(aws_iot_shadow_handle_t handle, const cJSON *root);
 
 esp_err_t aws_iot_shadow_request_update_reported(aws_iot_shadow_handle_t handle, const cJSON *reported,
-                                             const char *client_token);
+                                                 const char *client_token);
 
 esp_err_t aws_iot_shadow_request_update_desired(aws_iot_shadow_handle_t handle, const cJSON *desired,
-                                            const char *client_token);
+                                                const char *client_token);
 
 esp_err_t aws_iot_shadow_request_delete(aws_iot_shadow_handle_t handle);
 
