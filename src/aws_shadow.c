@@ -90,10 +90,11 @@ static esp_err_t esp_aws_shadow_event_dispatch(esp_event_loop_handle_t event_loo
     return esp_event_loop_run(event_loop, 0);
 }
 
-static esp_err_t esp_aws_shadow_event_dispatch_update_accepted(aws_shadow_handle_t handle,
-                                                               esp_mqtt_event_handle_t event)
+static esp_err_t esp_aws_shadow_event_dispatch_accepted(aws_shadow_handle_t handle,
+                                                        aws_shadow_event_t event_id,
+                                                        esp_mqtt_event_handle_t event)
 {
-    aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_SHADOW_EVENT_UPDATE_ACCEPTED);
+    aws_shadow_event_data_t shadow_event = AWS_SHADOW_EVENT_DATA_INITIALIZER(handle, event_id);
 
     // Parse and publish data (delete after dispatch)
     cJSON *root = esp_aws_shadow_parse_update_accepted(event->data, event->data_len, &shadow_event);
@@ -248,7 +249,7 @@ static void esp_aws_shadow_mqtt_data_get_op(aws_shadow_handle_t handle, esp_mqtt
         && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
     {
         // /get/accepted
-        esp_err_t err = esp_aws_shadow_event_dispatch_update_accepted(handle, event);
+        esp_err_t err = esp_aws_shadow_event_dispatch_accepted(handle, AWS_SHADOW_EVENT_GET_ACCEPTED, event);
         if (err != ESP_OK)
         {
             ESP_LOGE(TAG, "event AWS_SHADOW_EVENT_UPDATE_ACCEPTED dispatch failed: %d", err);
@@ -276,7 +277,7 @@ static void esp_aws_shadow_mqtt_data_update_op(aws_shadow_handle_t handle, esp_m
         && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
     {
         // /update/accepted
-        esp_err_t err = esp_aws_shadow_event_dispatch_update_accepted(handle, event);
+        esp_err_t err = esp_aws_shadow_event_dispatch_accepted(handle, AWS_SHADOW_EVENT_UPDATE_ACCEPTED, event);
         if (err != ESP_OK)
         {
             ESP_LOGE(TAG, "event AWS_SHADOW_EVENT_UPDATE_ACCEPTED dispatch failed: %d", err);
