@@ -9,7 +9,9 @@ extern "C" {
 #endif
 
 /**
- * @brief Convenience method, that logs human-readable summary of mqtt error.
+ * @brief Convenience method, that logs human-readable summary of MQTT_ERROR event.
+ *
+ * Not related directly to AWS IoT Shadow, generic to MQTT.
  *
  * @param tag Logging tag for logging library
  * @param error MQTT error reference
