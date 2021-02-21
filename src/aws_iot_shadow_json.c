@@ -16,15 +16,21 @@ static cJSON *aws_iot_shadow_parse_json(const char *data, size_t data_len)
     return root;
 }
 
+static cJSON *aws_iot_shadow_get_item_with_children(cJSON *obj, const char *key)
+{
+    cJSON *item = cJSON_GetObjectItemCaseSensitive(obj, key);
+    return item && item->child ? item : NULL;
+}
+
 cJSON *aws_iot_shadow_parse_accepted(const char *data, size_t data_len, aws_iot_shadow_event_data_t *output)
 {
     cJSON *root = aws_iot_shadow_parse_json(data, data_len);
     cJSON *state = cJSON_GetObjectItemCaseSensitive(root, AWS_IOT_SHADOW_JSON_STATE);
     // Note: these cJSON methods are NULL-safe
     output->root = root;
-    output->desired = cJSON_GetObjectItemCaseSensitive(state, AWS_IOT_SHADOW_JSON_DESIRED);
-    output->reported = cJSON_GetObjectItemCaseSensitive(state, AWS_IOT_SHADOW_JSON_REPORTED);
-    output->delta = cJSON_GetObjectItemCaseSensitive(state, AWS_IOT_SHADOW_JSON_DELTA);
+    output->desired = aws_iot_shadow_get_item_with_children(state, AWS_IOT_SHADOW_JSON_DESIRED);
+    output->reported = aws_iot_shadow_get_item_with_children(state, AWS_IOT_SHADOW_JSON_REPORTED);
+    output->delta = aws_iot_shadow_get_item_with_children(state, AWS_IOT_SHADOW_JSON_DELTA);
     output->client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, AWS_IOT_SHADOW_JSON_CLIENT_TOKEN));
 
     return root;
@@ -35,7 +41,7 @@ cJSON *aws_iot_shadow_parse_update_delta(const char *data, size_t data_len, aws_
     cJSON *root = aws_iot_shadow_parse_json(data, data_len);
     // Note: delta document have attributes directly under state attribute
     output->root = root;
-    output->delta = cJSON_GetObjectItemCaseSensitive(root, AWS_IOT_SHADOW_JSON_STATE);
+    output->delta = aws_iot_shadow_get_item_with_children(root, AWS_IOT_SHADOW_JSON_STATE);
     output->client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, AWS_IOT_SHADOW_JSON_CLIENT_TOKEN));
     return root;
 }

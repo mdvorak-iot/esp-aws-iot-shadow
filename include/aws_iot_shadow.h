@@ -24,22 +24,29 @@ typedef struct aws_iot_shadow_handle *aws_iot_shadow_handle_t;
 
 typedef enum
 {
-    /** Handle any event */
+    /** @brief Handle any event */
     AWS_IOT_SHADOW_EVENT_ANY = ESP_EVENT_ANY_ID,
-    /** Connected and initialized */
+    /** @brief Connected and initialized */
     AWS_IOT_SHADOW_EVENT_READY = 0,
-    /** Disconnected from the server */
+    /** @brief Disconnected from the server */
     AWS_IOT_SHADOW_EVENT_DISCONNECTED,
-    /** Received error to an action */
+    /** @brief Received error to an action */
     AWS_IOT_SHADOW_EVENT_ERROR,
-    /** Received a get state */
+    /** @brief Received a get state */
     AWS_IOT_SHADOW_EVENT_GET_ACCEPTED,
-    /** Shadow was deleted */
+    /** @brief Shadow was deleted */
     AWS_IOT_SHADOW_EVENT_DELETE_ACCEPTED,
-    /** Received an updated state */
+    /** @brief Received an updated state */
     AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED,
-    /** Received a state delta */
+    /** @brief Received a state delta */
     AWS_IOT_SHADOW_EVENT_UPDATE_DELTA,
+    /**
+     * @brief High-level event, which will have populated state field.
+     *
+     * If state->to_desired field
+     * Note that if accepted event contains both desired and delta fields, this event will be fired twice for one message.
+     */
+    AWS_IOT_SHADOW_EVENT_STATE,
     /** Invalid event ID */
     AWS_IOT_SHADOW_EVENT_MAX,
 } aws_iot_shadow_event_t;
@@ -49,6 +56,17 @@ typedef struct
     int code;
     const char *message;
 } aws_iot_shadow_event_error_t;
+
+typedef struct
+{
+    const cJSON *const data;
+    /**
+     * @brief This structure will be sent as update to server after handling of this event has finished.
+     *
+     * Might be NULL, it is set only if delta state is being handled.
+     */
+    cJSON *const to_report;
+} aws_iot_shadow_event_state_t;
 
 typedef struct
 {
@@ -62,6 +80,7 @@ typedef struct
     const cJSON *delta;
     const char *client_token;
     const aws_iot_shadow_event_error_t *error;
+    const aws_iot_shadow_event_state_t *state;
 } aws_iot_shadow_event_data_t;
 
 esp_err_t aws_iot_shadow_init(esp_mqtt_client_handle_t client, const char *thing_name, const char *shadow_name,

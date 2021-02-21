@@ -23,6 +23,7 @@ ESP_EVENT_DEFINE_BASE(AWS_IOT_SHADOW_EVENT);
         .delta = NULL,                                            \
         .client_token = NULL,                                     \
         .error = NULL,                                            \
+        .state = NULL,                                            \
     }
 
 static const int CONNECTED_BIT = BIT0;
@@ -96,9 +97,49 @@ static esp_err_t aws_iot_shadow_event_dispatch(esp_event_loop_handle_t event_loo
     return esp_event_loop_run(event_loop, 0);
 }
 
-static esp_err_t aws_iot_shadow_event_dispatch_accepted(aws_iot_shadow_handle_t handle,
-                                                        aws_iot_shadow_event_t event_id,
-                                                        esp_mqtt_event_handle_t event)
+static void aws_iot_shadow_event_dispatch_state(aws_iot_shadow_event_data_t *shadow_event, const cJSON *data, bool report)
+{
+    // Note: we reuse shadow_event instance here, it should not be used after handling of previous event is finished
+    shadow_event->event_id = AWS_IOT_SHADOW_EVENT_STATE;
+
+    // Prepare reported object if needed
+    cJSON *to_report = report ? cJSON_CreateObject() : NULL;
+
+    // Prepare state
+    aws_iot_shadow_event_state_t state = {
+        .data = data,
+        .to_report = to_report,
+    };
+    shadow_event->state = &state;
+
+    // Publish state event
+    esp_err_t err = aws_iot_shadow_event_dispatch(shadow_event->handle->event_loop, shadow_event);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "failed to dispatch event %d: %d (%s)", shadow_event->event_id, err, esp_err_to_name(err));
+        goto cleanup;
+    }
+
+    // Send reported state
+    if (to_report && to_report->child)
+    {
+        err = aws_iot_shadow_request_update_reported(shadow_event->handle, to_report, shadow_event->client_token);
+        if (err != ESP_OK)
+        {
+            // Note: possibly give user some chance to handle this, another event?
+            ESP_LOGW(TAG, "failed to request reported update: %d (%s)", err, esp_err_to_name(err));
+            goto cleanup;
+        }
+    }
+
+    // Delete
+cleanup:
+    cJSON_Delete(to_report);
+}
+
+static void aws_iot_shadow_event_dispatch_accepted(aws_iot_shadow_handle_t handle,
+                                                   aws_iot_shadow_event_t event_id,
+                                                   esp_mqtt_event_handle_t event)
 {
     aws_iot_shadow_event_data_t shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, event_id);
 
@@ -107,18 +148,40 @@ static esp_err_t aws_iot_shadow_event_dispatch_accepted(aws_iot_shadow_handle_t 
     if (root == NULL)
     {
         ESP_LOGW(TAG, "failed to parse accepted json document");
+        return;
+    }
+
+    // Ignore empty event
+    if (!shadow_event.desired && !shadow_event.delta && !shadow_event.reported)
+    {
+        ESP_LOGD(TAG, "ignoring empty event %d", event_id);
+        return;
     }
 
     // Publish specific accepted event
     esp_err_t err = aws_iot_shadow_event_dispatch(handle->event_loop, &shadow_event);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "failed to dispatch event %d: %d (%s)", shadow_event.event_id, err, esp_err_to_name(err));
+        // Don't exit just yet
+    }
+
+    // Public state events
+    if (shadow_event.desired)
+    {
+        aws_iot_shadow_event_dispatch_state(&shadow_event, shadow_event.desired, false);
+    }
+    if (shadow_event.delta)
+    {
+        aws_iot_shadow_event_dispatch_state(&shadow_event, shadow_event.delta, true);
+    }
 
     // Delete and return
     cJSON_Delete(root);
-    return err;
 }
 
-static esp_err_t aws_iot_shadow_event_dispatch_update_delta(aws_iot_shadow_handle_t handle,
-                                                            esp_mqtt_event_handle_t event)
+static void aws_iot_shadow_event_dispatch_update_delta(aws_iot_shadow_handle_t handle,
+                                                       esp_mqtt_event_handle_t event)
 {
     aws_iot_shadow_event_data_t shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_IOT_SHADOW_EVENT_UPDATE_DELTA);
 
@@ -127,17 +190,32 @@ static esp_err_t aws_iot_shadow_event_dispatch_update_delta(aws_iot_shadow_handl
     if (root == NULL)
     {
         ESP_LOGW(TAG, "failed to parse delta json document");
+        return;
+    }
+
+    // Ignore empty event
+    if (!shadow_event.delta)
+    {
+        ESP_LOGD(TAG, "ignoring empty event %d", AWS_IOT_SHADOW_EVENT_UPDATE_DELTA);
+        return;
     }
 
     // Publish delta event
     esp_err_t err = aws_iot_shadow_event_dispatch(handle->event_loop, &shadow_event);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "failed to dispatch event %d: %d (%s)", shadow_event.event_id, err, esp_err_to_name(err));
+        // Don't exit just yet
+    }
+
+    // Publish state event
+    aws_iot_shadow_event_dispatch_state(&shadow_event, shadow_event.delta, true);
 
     // Delete and return
     cJSON_Delete(root);
-    return err;
 }
 
-static esp_err_t aws_iot_shadow_event_dispatch_error(aws_iot_shadow_handle_t handle, esp_mqtt_event_handle_t event)
+static void aws_iot_shadow_event_dispatch_error(aws_iot_shadow_handle_t handle, esp_mqtt_event_handle_t event)
 {
     aws_iot_shadow_event_data_t shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_IOT_SHADOW_EVENT_ERROR);
     aws_iot_shadow_event_error_t shadow_error = {};
@@ -149,12 +227,17 @@ static esp_err_t aws_iot_shadow_event_dispatch_error(aws_iot_shadow_handle_t han
     if (root == NULL)
     {
         ESP_LOGW(TAG, "failed to parse error json document");
+        return;
     }
 
     esp_err_t err = aws_iot_shadow_event_dispatch(handle->event_loop, &shadow_event);
-    cJSON_Delete(root);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "failed to dispatch event %d: %d (%s)", shadow_event.event_id, err, esp_err_to_name(err));
+        // Don't exit just yet
+    }
 
-    return err;
+    cJSON_Delete(root);
 }
 
 static void aws_iot_shadow_mqtt_connected(aws_iot_shadow_handle_t handle)
@@ -259,21 +342,13 @@ static void aws_iot_shadow_mqtt_data_get_op(aws_iot_shadow_handle_t handle, esp_
         && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
     {
         // /get/accepted
-        esp_err_t err = aws_iot_shadow_event_dispatch_accepted(handle, AWS_IOT_SHADOW_EVENT_GET_ACCEPTED, event);
-        if (err != ESP_OK)
-        {
-            ESP_LOGE(TAG, "event AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED dispatch failed: %d", err);
-        }
+        aws_iot_shadow_event_dispatch_accepted(handle, AWS_IOT_SHADOW_EVENT_GET_ACCEPTED, event);
     }
     else if (op_len == SHADOW_SUFFIX_REJECTED_LENGTH
              && strncmp(op, SHADOW_SUFFIX_REJECTED, SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
     {
         // /get/rejected
-        esp_err_t err = aws_iot_shadow_event_dispatch_error(handle, event);
-        if (err != ESP_OK)
-        {
-            ESP_LOGE(TAG, "event AWS_IOT_SHADOW_EVENT_ERROR dispatch failed: %d", err);
-        }
+        aws_iot_shadow_event_dispatch_error(handle, event);
     }
 }
 
@@ -287,30 +362,18 @@ static void aws_iot_shadow_mqtt_data_update_op(aws_iot_shadow_handle_t handle, e
         && strncmp(op, SHADOW_SUFFIX_ACCEPTED, SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
     {
         // /update/accepted
-        esp_err_t err = aws_iot_shadow_event_dispatch_accepted(handle, AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED, event);
-        if (err != ESP_OK)
-        {
-            ESP_LOGE(TAG, "event AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED dispatch failed: %d", err);
-        }
+        aws_iot_shadow_event_dispatch_accepted(handle, AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED, event);
     }
     else if (op_len == SHADOW_SUFFIX_REJECTED_LENGTH
              && strncmp(op, SHADOW_SUFFIX_REJECTED, SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
     {
         // /update/rejected
-        esp_err_t err = aws_iot_shadow_event_dispatch_error(handle, event);
-        if (err != ESP_OK)
-        {
-            ESP_LOGE(TAG, "event AWS_IOT_SHADOW_EVENT_ERROR dispatch failed: %d", err);
-        }
+        aws_iot_shadow_event_dispatch_error(handle, event);
     }
     else if (op_len == SHADOW_SUFFIX_DELTA_LENGTH && strncmp(op, SHADOW_SUFFIX_DELTA, SHADOW_SUFFIX_DELTA_LENGTH) == 0)
     {
         // /update/delta
-        esp_err_t err = aws_iot_shadow_event_dispatch_update_delta(handle, event);
-        if (err != ESP_OK)
-        {
-            ESP_LOGE(TAG, "event AWS_IOT_SHADOW_EVENT_UPDATE_DELTA dispatch failed: %d", err);
-        }
+        aws_iot_shadow_event_dispatch_update_delta(handle, event);
     }
 }
 
@@ -335,11 +398,7 @@ static void aws_iot_shadow_mqtt_data_delete_op(aws_iot_shadow_handle_t handle, e
              && strncmp(op, SHADOW_SUFFIX_REJECTED, SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
     {
         // /delete/rejected
-        esp_err_t err = aws_iot_shadow_event_dispatch_error(handle, event);
-        if (err != ESP_OK)
-        {
-            ESP_LOGE(TAG, "event AWS_IOT_SHADOW_EVENT_ERROR dispatch failed: %d", err);
-        }
+        aws_iot_shadow_event_dispatch_error(handle, event);
     }
 }
 
