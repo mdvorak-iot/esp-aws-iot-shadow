@@ -169,6 +169,12 @@ static void setup()
     mqtt_cfg.client_key_len = private_pem_key_end - private_pem_key_start;
 
     mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
+    if (!mqtt_client)
+    {
+        ESP_LOGE(TAG, "failed to init mqtt client");
+        return;
+    }
+
     ESP_ERROR_CHECK(esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, mqtt_event_handler, NULL));
 
     // Shadow
