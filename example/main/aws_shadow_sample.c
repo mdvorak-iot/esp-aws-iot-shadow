@@ -10,14 +10,18 @@
 #include <mqtt_client.h>
 #include <nvs_flash.h>
 
-// TODO
-#include "certs.h"
-
 static const char TAG[] = "example";
 
 static bool mqtt_started = false;
 static esp_mqtt_client_handle_t mqtt_client = NULL;
 static aws_shadow_handle_t shadow_client = NULL;
+
+extern const uint8_t aws_root_ca_pem_start[] asm("_binary_aws_root_ca_pem_start");
+extern const uint8_t aws_root_ca_pem_end[] asm("_binary_aws_root_ca_pem_end");
+extern const uint8_t certificate_pem_crt_start[] asm("_binary_certificate_pem_crt_start");
+extern const uint8_t certificate_pem_crt_end[] asm("_binary_certificate_pem_crt_end");
+extern const uint8_t private_pem_key_start[] asm("_binary_private_pem_key_start");
+extern const uint8_t private_pem_key_end[] asm("_binary_private_pem_key_end");
 
 static void wifi_event_handler(__unused void *handler_args, esp_event_base_t event_base, int32_t event_id, __unused void *event_data)
 {
@@ -150,14 +154,19 @@ static void setup()
 
     // MQTT
     esp_mqtt_client_config_t mqtt_cfg = {};
-    mqtt_cfg.host = CONFIG_AWS_IOT_MQTT_HOST;
-    mqtt_cfg.port = CONFIG_AWS_IOT_MQTT_PORT;
-    mqtt_cfg.client_id = CONFIG_AWS_IOT_MQTT_CLIENT_ID;
-    mqtt_cfg.transport = MQTT_TRANSPORT_OVER_SSL;
-    mqtt_cfg.protocol_ver = MQTT_PROTOCOL_V_3_1_1;
-    mqtt_cfg.cert_pem = (const char *)AWS_ROOT_CA_PEM;
+    mqtt_cfg.host = CONFIG_EXAMPLE_AWS_IOT_MQTT_HOST;
+    mqtt_cfg.port = CONFIG_EXAMPLE_AWS_IOT_MQTT_PORT;
+    mqtt_cfg.client_id = CONFIG_EXAMPLE_AWS_IOT_MQTT_CLIENT_ID;
+    mqtt_cfg.transport = CONFIG_EXAMPLE_AWS_IOT_MQTT_TRANSPORT;
+
+    mqtt_cfg.cert_pem = (const char *)aws_root_ca_pem_start;
+    mqtt_cfg.cert_len = aws_root_ca_pem_end - aws_root_ca_pem_start;
+
     mqtt_cfg.client_cert_pem = (const char *)certificate_pem_crt_start;
+    mqtt_cfg.client_cert_len = certificate_pem_crt_end - certificate_pem_crt_start;
+
     mqtt_cfg.client_key_pem = (const char *)private_pem_key_start;
+    mqtt_cfg.client_key_len = private_pem_key_end - private_pem_key_start;
 
     mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
     ESP_ERROR_CHECK(esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, mqtt_event_handler, NULL));

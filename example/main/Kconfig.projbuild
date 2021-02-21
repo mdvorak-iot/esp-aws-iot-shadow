@@ -1,15 +1,62 @@
-menu "Example Configuration"
+menu "Example config"
+
+    config EXAMPLE_WIFI_CONFIG
+        bool "Override and store WiFI config"
+        default n
 
     config EXAMPLE_WIFI_SSID
         string "WiFi SSID"
         default ""
+        depends on EXAMPLE_WIFI_CONFIG
         help
             SSID (network name) for the example to connect to.
 
     config EXAMPLE_WIFI_PASSWORD
         string "WiFi Password"
         default ""
+        depends on EXAMPLE_WIFI_CONFIG
         help
             WiFi password (WPA, WPA2 or WPA3) for the example to use.
 
+    choice EXAMPLE_AWS_IOT_MQTT_TRANSPORT
+        prompt "AWS IoT MQTT transport type"
+        default EXAMPLE_AWS_IOT_MQTT_TRANSPORT_SSL
+
+        config EXAMPLE_AWS_IOT_MQTT_TRANSPORT_UNKNOWN
+            bool "Unknown"
+        config EXAMPLE_AWS_IOT_MQTT_TRANSPORT_TCP
+            bool "MQTT over TCP, using scheme mqtt"
+        config EXAMPLE_AWS_IOT_MQTT_TRANSPORT_SSL
+            bool "MQTT over SSL, using scheme mqtts"
+        config EXAMPLE_AWS_IOT_MQTT_TRANSPORT_WS
+            bool "MQTT over Websocket, using scheme ws"
+        config EXAMPLE_AWS_IOT_MQTT_TRANSPORT_WSS
+            bool "MQTT over Websocket Secure, using scheme wss"
+    endchoice
+
+    config EXAMPLE_AWS_IOT_MQTT_TRANSPORT
+        int
+        default 1 if EXAMPLE_AWS_IOT_MQTT_TRANSPORT_TCP
+        default 2 if EXAMPLE_AWS_IOT_MQTT_TRANSPORT_SSL
+        default 3 if EXAMPLE_AWS_IOT_MQTT_TRANSPORT_WS
+        default 4 if EXAMPLE_AWS_IOT_MQTT_TRANSPORT_WSS
+        default 0
+
+    config EXAMPLE_AWS_IOT_MQTT_PORT
+        int "AWS IoT MQTT port"
+        default 0
+        help
+            MQTT port, 0 to use transport default (configured in MQTT component).
+
+    config EXAMPLE_AWS_IOT_MQTT_HOST
+        string "AWS IoT MQTT host"
+        default ""
+        help
+            Your AWS hostname, can be found on the thing detail.
+
+    config EXAMPLE_AWS_IOT_MQTT_CLIENT_ID
+        string "AWS IoT MQTT client ID"
+        default ""
+        help
+            Usually found on the thing detail.
 endmenu
