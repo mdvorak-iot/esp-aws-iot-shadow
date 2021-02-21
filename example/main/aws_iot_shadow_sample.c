@@ -1,5 +1,5 @@
-#include "aws_shadow.h"
-#include "aws_shadow_mqtt_error.h"
+#include "aws_iot_shadow.h"
+#include "aws_iot_shadow_mqtt_error.h"
 #include <esp_err.h>
 #include <esp_log.h>
 #include <esp_ota_ops.h>
@@ -14,7 +14,7 @@ static const char TAG[] = "example";
 
 static bool mqtt_started = false;
 static esp_mqtt_client_handle_t mqtt_client = NULL;
-static aws_shadow_handle_t shadow_client = NULL;
+static aws_iot_shadow_handle_t shadow_client = NULL;
 
 extern const uint8_t aws_root_ca_pem_start[] asm("_binary_aws_root_ca_pem_start");
 extern const uint8_t aws_root_ca_pem_end[] asm("_binary_aws_root_ca_pem_end");
@@ -61,7 +61,7 @@ static void mqtt_event_handler(__unused void *handler_args, __unused esp_event_b
         break;
 
     case MQTT_EVENT_ERROR:
-        aws_shadow_log_mqtt_error(TAG, event->error_handle);
+        aws_iot_shadow_log_mqtt_error(TAG, event->error_handle);
         break;
     default:
         break;
@@ -79,13 +79,13 @@ static void shadow_updated(const cJSON *state)
 
 static void shadow_event_handler(__unused void *handler_args, __unused esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
-    aws_shadow_event_data_t *event = (aws_shadow_event_data_t *)event_data;
-    cJSON *version_obj = cJSON_GetObjectItemCaseSensitive(event->root, AWS_SHADOW_JSON_VERSION);
-    const char *client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(event->root, AWS_SHADOW_JSON_CLIENT_TOKEN));
+    aws_iot_shadow_event_data_t *event = (aws_iot_shadow_event_data_t *)event_data;
+    cJSON *version_obj = cJSON_GetObjectItemCaseSensitive(event->root, AWS_IOT_SHADOW_JSON_VERSION);
+    const char *client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(event->root, AWS_IOT_SHADOW_JSON_CLIENT_TOKEN));
 
     ESP_LOGI(TAG, "received shadow event %d for %s/%s, version %.0f, client_token '%s'", event_id, event->thing_name, event->shadow_name, version_obj ? version_obj->valuedouble : -1, client_token ? client_token : "");
 
-    if (event_id == AWS_SHADOW_EVENT_GET_ACCEPTED || event->event_id == AWS_SHADOW_EVENT_UPDATE_ACCEPTED || event->event_id == AWS_SHADOW_EVENT_UPDATE_DELTA)
+    if (event_id == AWS_IOT_SHADOW_EVENT_GET_ACCEPTED || event->event_id == AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED || event->event_id == AWS_IOT_SHADOW_EVENT_UPDATE_DELTA)
     {
         if (event->desired)
         {
@@ -98,10 +98,10 @@ static void shadow_event_handler(__unused void *handler_args, __unused esp_event
             shadow_updated(event->delta);
             // Report they are processed
             // Note: We can reuse delta object, but any extra reported values must be sent independently
-            aws_shadow_request_update_reported(event->handle, event->delta, NULL);
+            aws_iot_shadow_request_update_reported(event->handle, event->delta, NULL);
         }
     }
-    else if (event->event_id == AWS_SHADOW_EVENT_ERROR)
+    else if (event->event_id == AWS_IOT_SHADOW_EVENT_ERROR)
     {
         ESP_LOGW(TAG, "shadow error %d %s", event->error->code, event->error->message);
     }
@@ -110,7 +110,7 @@ static void shadow_event_handler(__unused void *handler_args, __unused esp_event
 static void setup()
 {
     esp_log_level_set("*", ESP_LOG_INFO);
-    esp_log_level_set("aws_shadow", ESP_LOG_DEBUG);
+    esp_log_level_set("aws_iot_shadow", ESP_LOG_DEBUG);
     esp_log_level_set(TAG, ESP_LOG_DEBUG);
 
     // Initialize NVS
@@ -178,8 +178,8 @@ static void setup()
     ESP_ERROR_CHECK(esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, mqtt_event_handler, NULL));
 
     // Shadow
-    ESP_ERROR_CHECK(aws_shadow_init(mqtt_client, aws_shadow_thing_name(mqtt_cfg.client_id), NULL, &shadow_client));
-    ESP_ERROR_CHECK(aws_shadow_handler_register(shadow_client, AWS_SHADOW_EVENT_ANY, shadow_event_handler, NULL));
+    ESP_ERROR_CHECK(aws_iot_shadow_init(mqtt_client, aws_iot_shadow_thing_name(mqtt_cfg.client_id), NULL, &shadow_client));
+    ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_ANY, shadow_event_handler, NULL));
 
     // Connect
     ESP_ERROR_CHECK(esp_wifi_connect());
@@ -202,7 +202,7 @@ static _Noreturn void run()
         time(&now);
 
         cJSON_SetIntValue(now_obj, now);
-        aws_shadow_request_update_reported(shadow_client, reported, NULL);
+        aws_iot_shadow_request_update_reported(shadow_client, reported, NULL);
     }
 }
 

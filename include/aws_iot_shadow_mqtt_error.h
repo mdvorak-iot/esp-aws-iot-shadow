@@ -1,5 +1,5 @@
-#ifndef ESP_AWS_SHADOW_MQTT_ERROR_H_
-#define ESP_AWS_SHADOW_MQTT_ERROR_H_
+#ifndef aws_IOT_SHADOW_MQTT_ERROR_H_
+#define aws_IOT_SHADOW_MQTT_ERROR_H_
 
 #include <esp_err.h>
 #include <mqtt_client.h>
@@ -14,7 +14,7 @@ extern "C" {
  * @param tag Logging tag for logging library
  * @param error MQTT error reference
  */
-void aws_shadow_log_mqtt_error(const char *tag, const esp_mqtt_error_codes_t *error);
+void aws_iot_shadow_log_mqtt_error(const char *tag, const esp_mqtt_error_codes_t *error);
 
 #ifdef __cplusplus
 }

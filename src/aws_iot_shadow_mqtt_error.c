@@ -1,7 +1,7 @@
-#include "aws_shadow_mqtt_error.h"
+#include "aws_iot_shadow_mqtt_error.h"
 #include <esp_log.h>
 
-void aws_shadow_log_mqtt_error(const char *tag, const esp_mqtt_error_codes_t *error)
+void aws_iot_shadow_log_mqtt_error(const char *tag, const esp_mqtt_error_codes_t *error)
 {
     if (error == NULL)
     {

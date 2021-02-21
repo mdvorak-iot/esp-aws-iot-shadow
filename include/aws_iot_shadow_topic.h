@@ -1,5 +1,5 @@
-#ifndef ESP_AWS_SHADOW_TOPIC_H_
-#define ESP_AWS_SHADOW_TOPIC_H_
+#ifndef aws_IOT_SHADOW_TOPIC_H_
+#define aws_IOT_SHADOW_TOPIC_H_
 
 /**
  * @brief The maximum length of Thing Name.
