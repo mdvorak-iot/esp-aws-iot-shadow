@@ -127,7 +127,7 @@ static void aws_iot_shadow_event_dispatch_state(aws_iot_shadow_event_data_t *sha
         if (err != ESP_OK)
         {
             // Note: possibly give user some chance to handle this, another event?
-            ESP_LOGW(TAG, "failed to request reported update: %d (%s)", err, esp_err_to_name(err));
+            ESP_LOGW(TAG, "failed to publish update message: %d (%s)", err, esp_err_to_name(err));
             goto cleanup;
         }
     }
@@ -404,7 +404,7 @@ static void aws_iot_shadow_mqtt_data_delete_op(aws_iot_shadow_handle_t handle, e
 
 static void aws_iot_shadow_mqtt_data(aws_iot_shadow_handle_t handle, esp_mqtt_event_handle_t event)
 {
-    ESP_LOGD(TAG, "received %.*s payload: %.*s", event->topic_len, event->topic, event->data_len, event->data ? event->data : "");
+    ESP_LOGD(TAG, "received %.*s payload (%d bytes): %.*s", event->topic_len, event->topic, event->data_len, event->data_len, event->data ? event->data : "");
 
     if (event->total_data_len > event->data_len)
     {
@@ -418,7 +418,7 @@ static void aws_iot_shadow_mqtt_data(aws_iot_shadow_handle_t handle, esp_mqtt_ev
         const char *action = event->topic + handle->topic_prefix_len;
         uint16_t action_len = event->topic_len - handle->topic_prefix_len;
 
-        ESP_LOGI(TAG, "%s action %.*s", handle->topic_prefix, action_len, action);
+        ESP_LOGI(TAG, "%s action %.*s (%d bytes)", handle->topic_prefix, action_len, action, event->total_data_len);
 
         if (action_len >= SHADOW_OP_GET_LENGTH && strncmp(action, SHADOW_OP_GET, SHADOW_OP_GET_LENGTH) == 0)
         {
