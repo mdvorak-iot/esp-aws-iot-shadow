@@ -391,7 +391,7 @@ static void aws_iot_shadow_mqtt_data_delete_op(aws_iot_shadow_handle_t handle, e
         esp_err_t err = aws_iot_shadow_event_dispatch(handle->event_loop, &shadow_event);
         if (err != ESP_OK)
         {
-            ESP_LOGE(TAG, "event AWS_IOT_SHADOW_EVENT_DELETE_ACCEPTED dispatch failed: %d", err);
+            ESP_LOGE(TAG, "failed to dispatch event %d: %d (%s)", shadow_event.event_id, err, esp_err_to_name(err));
         }
     }
     else if (op_len == SHADOW_SUFFIX_REJECTED_LENGTH
@@ -404,6 +404,8 @@ static void aws_iot_shadow_mqtt_data_delete_op(aws_iot_shadow_handle_t handle, e
 
 static void aws_iot_shadow_mqtt_data(aws_iot_shadow_handle_t handle, esp_mqtt_event_handle_t event)
 {
+    ESP_LOGD(TAG, "received %.*s payload: %.*s", event->topic_len, event->topic, event->data_len, event->data ? event->data : "");
+
     if (event->topic_len > handle->topic_prefix_len && event->topic_len < SHADOW_TOPIC_MAX_LENGTH
         && strncmp(event->topic, handle->topic_prefix, handle->topic_prefix_len) == 0)
     {
@@ -693,6 +695,8 @@ esp_err_t aws_iot_shadow_request_update(aws_iot_shadow_handle_t handle, const cJ
     }
 
     ESP_LOGI(TAG, "sending %s (%u bytes)", topic_name, json_len);
+    ESP_LOGD(TAG, "sending %s payload: %.*s", topic_name, json_len, json);
+
     int msg_id = esp_mqtt_client_publish(handle->client, topic_name, json, json_len, 1, 0);
     free(json);
 
