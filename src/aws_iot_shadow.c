@@ -408,7 +408,7 @@ static void aws_iot_shadow_mqtt_data(aws_iot_shadow_handle_t handle, esp_mqtt_ev
 
     if (event->total_data_len > event->data_len)
     {
-        ESP_LOGE(TAG, "received partial data, this is not supported, please increase esp_mqtt_client_config_t.buffer_size to > %d", event->total_data_len);
+        ESP_LOGE(TAG, "received partial data, this is not supported, please increase esp_mqtt_client_config_t.buffer_size to > %d (or set CONFIG_MQTT_BUFFER_SIZE)", event->total_data_len);
         return;
     }
 
