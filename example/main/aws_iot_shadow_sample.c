@@ -153,8 +153,6 @@ static void setup()
     mqtt_cfg.client_id = CONFIG_EXAMPLE_AWS_IOT_MQTT_CLIENT_ID;
     mqtt_cfg.transport = CONFIG_EXAMPLE_AWS_IOT_MQTT_TRANSPORT;
 
-    mqtt_cfg.buffer_size = 2048; // partial message processing is not supported, make sure whole shadow json fits in mqtt buffer
-
     mqtt_cfg.cert_pem = (const char *)aws_root_ca_pem_start;
     mqtt_cfg.cert_len = aws_root_ca_pem_end - aws_root_ca_pem_start;
 
