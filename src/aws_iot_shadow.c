@@ -283,10 +283,14 @@ static void aws_iot_shadow_mqtt_subscribed(aws_iot_shadow_handle_t handle, esp_m
         ESP_LOGI(TAG, "%s is ready", handle->topic_prefix);
 
         aws_iot_shadow_event_data_t shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_IOT_SHADOW_EVENT_READY);
-        aws_iot_shadow_event_dispatch(handle->event_loop, &shadow_event);
+        esp_err_t err = aws_iot_shadow_event_dispatch(handle->event_loop, &shadow_event);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "failed to dispatch event %d: %d (%s)", shadow_event.event_id, err, esp_err_to_name(err));
+        }
 
         // Request data
-        esp_err_t err = aws_iot_shadow_request_get(handle);
+        err = aws_iot_shadow_request_get(handle);
         if (err != ESP_OK)
         {
             ESP_LOGE(TAG, "failed to publish %s" SHADOW_OP_GET, handle->topic_prefix);
