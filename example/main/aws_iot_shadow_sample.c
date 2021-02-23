@@ -68,20 +68,20 @@ static void mqtt_event_handler(__unused void *handler_args, __unused esp_event_b
     }
 }
 
-static void shadow_updated(const aws_iot_shadow_event_state_t *state)
-{
-    const char *welcome = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(state->data, "welcome"));
-    if (welcome)
-    {
-        ESP_LOGI(TAG, "got welcome='%s'", welcome);
-
-        // Report back
-        if (state->to_report)
-        {
-            cJSON_AddStringToObject(state->to_report, "welcome", welcome);
-        }
-    }
-}
+//static void shadow_updated(const aws_iot_shadow_event_state_t *state)
+//{
+//    const char *welcome = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(state->data, "welcome"));
+//    if (welcome)
+//    {
+//        ESP_LOGI(TAG, "got welcome='%s'", welcome);
+//
+//        // Report back
+//        if (state->to_report)
+//        {
+//            cJSON_AddStringToObject(state->to_report, "welcome", welcome);
+//        }
+//    }
+//}
 
 static void shadow_event_handler(__unused void *handler_args, __unused esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
@@ -91,9 +91,10 @@ static void shadow_event_handler(__unused void *handler_args, __unused esp_event
 
     ESP_LOGI(TAG, "received shadow event %d for %s/%s, version %.0f, client_token '%s'", event_id, event->thing_name, event->shadow_name, version_obj ? version_obj->valuedouble : -1, client_token ? client_token : "");
 
-    if (event_id == AWS_IOT_SHADOW_EVENT_STATE)
+    // TODO
+    if (event_id == AWS_IOT_SHADOW_EVENT_GET_ACCEPTED)
     {
-        shadow_updated(event->state);
+        //        shadow_updated(event->state);
     }
     else if (event->event_id == AWS_IOT_SHADOW_EVENT_ERROR)
     {

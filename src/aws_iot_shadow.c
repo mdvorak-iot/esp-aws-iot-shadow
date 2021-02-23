@@ -23,7 +23,6 @@ ESP_EVENT_DEFINE_BASE(AWS_IOT_SHADOW_EVENT);
         .delta = NULL,                                            \
         .client_token = NULL,                                     \
         .error = NULL,                                            \
-        .state = NULL,                                            \
     }
 
 static const int CONNECTED_BIT = BIT0;
@@ -97,46 +96,6 @@ static esp_err_t aws_iot_shadow_event_dispatch(esp_event_loop_handle_t event_loo
     return esp_event_loop_run(event_loop, 0);
 }
 
-static void aws_iot_shadow_event_dispatch_state(aws_iot_shadow_event_data_t *shadow_event, const cJSON *data, bool report)
-{
-    // Note: we reuse shadow_event instance here, it should not be used after handling of previous event is finished
-    shadow_event->event_id = AWS_IOT_SHADOW_EVENT_STATE;
-
-    // Prepare reported object if needed
-    cJSON *to_report = report ? cJSON_CreateObject() : NULL;
-
-    // Prepare state
-    aws_iot_shadow_event_state_t state = {
-        .data = data,
-        .to_report = to_report,
-    };
-    shadow_event->state = &state;
-
-    // Publish state event
-    esp_err_t err = aws_iot_shadow_event_dispatch(shadow_event->handle->event_loop, shadow_event);
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG, "failed to dispatch event %d: %d (%s)", shadow_event->event_id, err, esp_err_to_name(err));
-        goto cleanup;
-    }
-
-    // Send reported state
-    if (to_report && to_report->child)
-    {
-        err = aws_iot_shadow_request_update_reported(shadow_event->handle, to_report, shadow_event->client_token);
-        if (err != ESP_OK)
-        {
-            // Note: possibly give user some chance to handle this, another event?
-            ESP_LOGW(TAG, "failed to publish update message: %d (%s)", err, esp_err_to_name(err));
-            goto cleanup;
-        }
-    }
-
-    // Delete
-cleanup:
-    cJSON_Delete(to_report);
-}
-
 static void aws_iot_shadow_event_dispatch_accepted(aws_iot_shadow_handle_t handle,
                                                    aws_iot_shadow_event_t event_id,
                                                    esp_mqtt_event_handle_t event)
@@ -148,14 +107,14 @@ static void aws_iot_shadow_event_dispatch_accepted(aws_iot_shadow_handle_t handl
     if (root == NULL)
     {
         ESP_LOGW(TAG, "failed to parse accepted json document");
-        return;
+        goto cleanup;
     }
 
     // Ignore empty event
     if (!shadow_event.desired && !shadow_event.delta && !shadow_event.reported)
     {
         ESP_LOGD(TAG, "ignoring empty event %d", event_id);
-        return;
+        goto cleanup;
     }
 
     // Publish specific accepted event
@@ -163,20 +122,11 @@ static void aws_iot_shadow_event_dispatch_accepted(aws_iot_shadow_handle_t handl
     if (err != ESP_OK)
     {
         ESP_LOGE(TAG, "failed to dispatch event %d: %d (%s)", shadow_event.event_id, err, esp_err_to_name(err));
-        // Don't exit just yet
+        goto cleanup;
     }
 
-    // Public state events
-    if (shadow_event.desired)
-    {
-        aws_iot_shadow_event_dispatch_state(&shadow_event, shadow_event.desired, false);
-    }
-    if (shadow_event.delta)
-    {
-        aws_iot_shadow_event_dispatch_state(&shadow_event, shadow_event.delta, true);
-    }
-
-    // Delete and return
+cleanup:
+    // Delete
     cJSON_Delete(root);
 }
 
@@ -190,14 +140,14 @@ static void aws_iot_shadow_event_dispatch_update_delta(aws_iot_shadow_handle_t h
     if (root == NULL)
     {
         ESP_LOGW(TAG, "failed to parse delta json document");
-        return;
+        goto cleanup;
     }
 
     // Ignore empty event
     if (!shadow_event.delta)
     {
         ESP_LOGD(TAG, "ignoring empty event %d", AWS_IOT_SHADOW_EVENT_UPDATE_DELTA);
-        return;
+        goto cleanup;
     }
 
     // Publish delta event
@@ -205,13 +155,11 @@ static void aws_iot_shadow_event_dispatch_update_delta(aws_iot_shadow_handle_t h
     if (err != ESP_OK)
     {
         ESP_LOGE(TAG, "failed to dispatch event %d: %d (%s)", shadow_event.event_id, err, esp_err_to_name(err));
-        // Don't exit just yet
+        goto cleanup;
     }
 
-    // Publish state event
-    aws_iot_shadow_event_dispatch_state(&shadow_event, shadow_event.delta, true);
-
-    // Delete and return
+cleanup:
+    // Delete
     cJSON_Delete(root);
 }
 
@@ -227,16 +175,18 @@ static void aws_iot_shadow_event_dispatch_error(aws_iot_shadow_handle_t handle, 
     if (root == NULL)
     {
         ESP_LOGW(TAG, "failed to parse error json document");
-        return;
+        goto cleanup;
     }
 
     esp_err_t err = aws_iot_shadow_event_dispatch(handle->event_loop, &shadow_event);
     if (err != ESP_OK)
     {
         ESP_LOGE(TAG, "failed to dispatch event %d: %d (%s)", shadow_event.event_id, err, esp_err_to_name(err));
-        // Don't exit just yet
+        goto cleanup;
     }
 
+cleanup:
+    // Delete
     cJSON_Delete(root);
 }
 

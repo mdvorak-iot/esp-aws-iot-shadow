@@ -40,13 +40,6 @@ typedef enum
     AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED,
     /** @brief Received a state delta */
     AWS_IOT_SHADOW_EVENT_UPDATE_DELTA,
-    /**
-     * @brief High-level event, which will have populated state field.
-     *
-     * If state->to_desired field
-     * Note that if accepted event contains both desired and delta fields, this event will be fired twice for one message.
-     */
-    AWS_IOT_SHADOW_EVENT_STATE,
     /** Invalid event ID */
     AWS_IOT_SHADOW_EVENT_MAX,
 } aws_iot_shadow_event_t;
@@ -56,17 +49,6 @@ typedef struct
     int code;
     const char *message;
 } aws_iot_shadow_event_error_t;
-
-typedef struct
-{
-    const cJSON *const data;
-    /**
-     * @brief This structure will be sent as update to server after handling of this event has finished.
-     *
-     * Might be NULL, it is set only if delta state is being handled.
-     */
-    cJSON *const to_report;
-} aws_iot_shadow_event_state_t;
 
 typedef struct
 {
@@ -80,7 +62,6 @@ typedef struct
     const cJSON *delta;
     const char *client_token;
     const aws_iot_shadow_event_error_t *error;
-    const aws_iot_shadow_event_state_t *state;
 } aws_iot_shadow_event_data_t;
 
 esp_err_t aws_iot_shadow_init(esp_mqtt_client_handle_t client, const char *thing_name, const char *shadow_name,
