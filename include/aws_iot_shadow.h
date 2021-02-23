@@ -5,6 +5,10 @@
 #include <esp_err.h>
 #include <mqtt_client.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define AWS_IOT_SHADOW_JSON_STATE "state"
 #define AWS_IOT_SHADOW_JSON_DESIRED "desired"
 #define AWS_IOT_SHADOW_JSON_REPORTED "reported"
@@ -14,8 +18,8 @@
 #define AWS_IOT_SHADOW_JSON_MESSAGE "message"
 #define AWS_IOT_SHADOW_JSON_CODE "code"
 
-#ifdef __cplusplus
-extern "C" {
+#ifndef AWS_IOT_SHADOW_SUPPORT_DELTA
+#define AWS_IOT_SHADOW_SUPPORT_DELTA CONFIG_AWS_IOT_SHADOW_SUPPORT_DELTA
 #endif
 
 ESP_EVENT_DECLARE_BASE(AWS_IOT_SHADOW_EVENT);
@@ -29,19 +33,21 @@ typedef enum
     /** @brief Connected and initialized */
     AWS_IOT_SHADOW_EVENT_READY = 0,
     /** @brief Disconnected from the server */
-    AWS_IOT_SHADOW_EVENT_DISCONNECTED,
+    AWS_IOT_SHADOW_EVENT_DISCONNECTED = 1,
     /** @brief Received error to an action */
-    AWS_IOT_SHADOW_EVENT_ERROR,
+    AWS_IOT_SHADOW_EVENT_ERROR = 2,
     /** @brief Received a get state */
-    AWS_IOT_SHADOW_EVENT_GET_ACCEPTED,
+    AWS_IOT_SHADOW_EVENT_GET_ACCEPTED = 3,
     /** @brief Shadow was deleted */
-    AWS_IOT_SHADOW_EVENT_DELETE_ACCEPTED,
+    AWS_IOT_SHADOW_EVENT_DELETE_ACCEPTED = 4,
     /** @brief Received an updated state */
-    AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED,
+    AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED = 5,
+#if AWS_IOT_SHADOW_SUPPORT_DELTA
     /** @brief Received a state delta */
-    AWS_IOT_SHADOW_EVENT_UPDATE_DELTA,
+    AWS_IOT_SHADOW_EVENT_UPDATE_DELTA = 6,
+#endif
     /** Invalid event ID */
-    AWS_IOT_SHADOW_EVENT_MAX,
+    AWS_IOT_SHADOW_EVENT_MAX = 7,
 } aws_iot_shadow_event_t;
 
 typedef struct

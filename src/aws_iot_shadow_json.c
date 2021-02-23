@@ -41,6 +41,7 @@ cJSON *aws_iot_shadow_parse_accepted(const char *data, size_t data_len, aws_iot_
     return root;
 }
 
+#if AWS_IOT_SHADOW_SUPPORT_DELTA
 cJSON *aws_iot_shadow_parse_update_delta(const char *data, size_t data_len, aws_iot_shadow_event_data_t *output)
 {
     cJSON *root = aws_iot_shadow_parse_json(data, data_len);
@@ -50,6 +51,7 @@ cJSON *aws_iot_shadow_parse_update_delta(const char *data, size_t data_len, aws_
     output->client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, AWS_IOT_SHADOW_JSON_CLIENT_TOKEN));
     return root;
 }
+#endif
 
 cJSON *aws_iot_shadow_parse_error(const char *data, size_t data_len, aws_iot_shadow_event_data_t *output, aws_iot_shadow_event_error_t *error)
 {

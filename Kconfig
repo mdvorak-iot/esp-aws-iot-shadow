@@ -1,0 +1,5 @@
+menu "AWS IoT Shadow"
+    config AWS_IOT_SHADOW_SUPPORT_DELTA
+        bool "Listen to /update/delta messages"
+        default n
+endmenu
