@@ -2,11 +2,8 @@
 #include "aws_iot_shadow_mqtt_error.h"
 #include <esp_err.h>
 #include <esp_log.h>
-#include <esp_ota_ops.h>
 #include <esp_tls.h>
 #include <esp_wifi.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 #include <mqtt_client.h>
 #include <nvs_flash.h>
 
