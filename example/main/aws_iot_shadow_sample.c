@@ -16,6 +16,9 @@ static bool mqtt_started = false;
 static esp_mqtt_client_handle_t mqtt_client = NULL;
 static aws_iot_shadow_handle_t shadow_client = NULL;
 
+static const char SHADOW_KEY_MY_VALUE[] = "my_value";
+static int my_value = 42; // Initialize with default
+
 extern const uint8_t aws_root_ca_pem_start[] asm("_binary_aws_root_ca_pem_start");
 extern const uint8_t aws_root_ca_pem_end[] asm("_binary_aws_root_ca_pem_end");
 extern const uint8_t certificate_pem_crt_start[] asm("_binary_certificate_pem_crt_start");
@@ -83,23 +86,68 @@ static void mqtt_event_handler(__unused void *handler_args, __unused esp_event_b
 //    }
 //}
 
-static void shadow_event_handler(__unused void *handler_args, __unused esp_event_base_t event_base, int32_t event_id, void *event_data)
+static void shadow_event_handler_state_accepted(__unused void *handler_args, __unused esp_event_base_t event_base,
+                                                __unused int32_t event_id, void *event_data)
+{
+    const aws_iot_shadow_event_data_t *event = (const aws_iot_shadow_event_data_t *)event_data;
+
+    // Ignore if desired is missing
+    if (!event->desired)
+    {
+        return;
+    }
+
+    cJSON *to_desire = NULL;
+    cJSON *to_report = cJSON_CreateObject();
+
+    // Handle change
+    const cJSON *my_value_obj = cJSON_GetObjectItemCaseSensitive(event->desired, SHADOW_KEY_MY_VALUE);
+    if (cJSON_IsNumber(my_value_obj))
+    {
+        my_value = my_value_obj->valueint;
+        ESP_LOGI(TAG, "%s changed to %d", SHADOW_KEY_MY_VALUE, my_value);
+    }
+
+    // Initialize desired with current values - get accepted contains always whole desired set
+    // Note: this is not needed, but it can make life much easier
+    if (event->event_id == AWS_IOT_SHADOW_EVENT_GET_ACCEPTED)
+    {
+        to_desire = cJSON_CreateObject();
+        if (!cJSON_HasObjectItem(event->desired, SHADOW_KEY_MY_VALUE))
+        {
+            cJSON_AddNumberToObject(to_desire, SHADOW_KEY_MY_VALUE, my_value);
+        }
+    }
+
+    // Publish event
+    esp_err_t err = aws_iot_shadow_request_update(event->handle, to_desire, to_report, NULL);
+    if (err != ESP_OK)
+    {
+        ESP_LOGW(TAG, "failed to publish update: %d (%s)", err, esp_err_to_name(err));
+        goto cleanup;
+    }
+
+cleanup:
+    // Cleanup
+    cJSON_Delete(to_desire);
+    cJSON_Delete(to_report);
+}
+
+static void shadow_event_handler_error(__unused void *handler_args, __unused esp_event_base_t event_base,
+                                       __unused int32_t event_id, void *event_data)
+{
+    const aws_iot_shadow_event_data_t *event = (const aws_iot_shadow_event_data_t *)event_data;
+    ESP_LOGW(TAG, "shadow error %d %s", event->error->code, event->error->message);
+}
+
+// Note: this is for demo, it is not usually needed
+static void shadow_event_handler_debug(__unused void *handler_args, __unused esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     const aws_iot_shadow_event_data_t *event = (const aws_iot_shadow_event_data_t *)event_data;
     const cJSON *version_obj = cJSON_GetObjectItemCaseSensitive(event->root, AWS_IOT_SHADOW_JSON_VERSION);
     const char *client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(event->root, AWS_IOT_SHADOW_JSON_CLIENT_TOKEN));
 
     ESP_LOGI(TAG, "received shadow event %d for %s/%s, version %.0f, client_token '%s'", event_id, event->thing_name, event->shadow_name, version_obj ? version_obj->valuedouble : -1, client_token ? client_token : "");
-
-    // TODO
-    if (event_id == AWS_IOT_SHADOW_EVENT_GET_ACCEPTED)
-    {
-        //        shadow_updated(event->state);
-    }
-    else if (event->event_id == AWS_IOT_SHADOW_EVENT_ERROR)
-    {
-        ESP_LOGW(TAG, "shadow error %d %s", event->error->code, event->error->message);
-    }
 }
 
 static void setup()
@@ -174,7 +222,10 @@ static void setup()
 
     // Shadow
     ESP_ERROR_CHECK(aws_iot_shadow_init(mqtt_client, aws_iot_shadow_thing_name(mqtt_cfg.client_id), NULL, &shadow_client));
-    ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_ANY, shadow_event_handler, NULL));
+    ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_ANY, shadow_event_handler_debug, NULL));
+    ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_ERROR, shadow_event_handler_error, NULL));
+    ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_GET_ACCEPTED, shadow_event_handler_state_accepted, NULL));
+    ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED, shadow_event_handler_state_accepted, NULL));
 
     // Connect
     ESP_ERROR_CHECK(esp_wifi_connect());
@@ -197,7 +248,7 @@ static _Noreturn void run()
         time(&now);
 
         cJSON_SetIntValue(now_obj, now);
-        aws_iot_shadow_request_update_reported(shadow_client, reported, NULL);
+        aws_iot_shadow_request_update(shadow_client, NULL, reported, NULL);
     }
 }
 
