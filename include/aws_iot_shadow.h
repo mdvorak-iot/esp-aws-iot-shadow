@@ -26,7 +26,17 @@ ESP_EVENT_DECLARE_BASE(AWS_IOT_SHADOW_EVENT);
 
 typedef struct aws_iot_shadow_handle *aws_iot_shadow_handle_t;
 
-typedef enum
+/**
+ * @brief Event types for a shadow.
+ *
+ * Note that handlers are dispatched on custom event loop, therefore
+ * they be registered via aws_iot_shadow_handler_register() and not default
+ * functions.
+ *
+ * @see aws_iot_shadow_handler_register
+ * @see aws_iot_shadow_handler_instance_register
+ */
+typedef enum aws_iot_shadow_event
 {
     /** @brief Handle any event */
     AWS_IOT_SHADOW_EVENT_ANY = ESP_EVENT_ANY_ID,
@@ -50,13 +60,13 @@ typedef enum
     AWS_IOT_SHADOW_EVENT_MAX = 7,
 } aws_iot_shadow_event_t;
 
-typedef struct
+typedef struct aws_iot_shadow_event_error
 {
     int code;
     const char *message;
 } aws_iot_shadow_event_error_t;
 
-typedef struct
+typedef struct aws_iot_shadow_event_data
 {
     aws_iot_shadow_event_t event_id;
     aws_iot_shadow_handle_t handle;
