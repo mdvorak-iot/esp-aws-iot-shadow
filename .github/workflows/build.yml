@@ -16,7 +16,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        AWS_IOT_SHADOW_SUPPORT_DELTA: [ 0, 1 ]
+        delta:
+          - "AWS_IOT_SHADOW_SUPPORT_DELTA=0"
+          - "AWS_IOT_SHADOW_SUPPORT_DELTA=1"
 
     steps:
       - uses: actions/checkout@v2
@@ -41,9 +43,9 @@ jobs:
       - name: Check
         run: platformio check -d example
         env:
-          PLATFORMIO_BUILD_FLAGS: -D AWS_IOT_SHADOW_SUPPORT_DELTA=${{ matrix.AWS_IOT_SHADOW_SUPPORT_DELTA }}
+          PLATFORMIO_BUILD_FLAGS: -D ${{ matrix.delta }}
 
       - name: Build
         run: platformio run -d example
         env:
-          PLATFORMIO_BUILD_FLAGS: -D AWS_IOT_SHADOW_SUPPORT_DELTA=${{ matrix.AWS_IOT_SHADOW_SUPPORT_DELTA }}
+          PLATFORMIO_BUILD_FLAGS: -D ${{ matrix.delta }}
