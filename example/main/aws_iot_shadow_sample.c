@@ -108,6 +108,9 @@ static void shadow_event_handler_state_accepted(__unused void *handler_args, __u
         ESP_LOGI(TAG, "%s changed to %d", SHADOW_KEY_MY_VALUE, my_value);
     }
 
+    // Report
+    cJSON_AddNumberToObject(to_report, SHADOW_KEY_MY_VALUE, my_value);
+
     // Initialize desired with current values - get accepted contains always whole desired set
     // Note: this is not needed, but it can make life much easier
     if (event->event_id == AWS_IOT_SHADOW_EVENT_GET_ACCEPTED)
