@@ -437,7 +437,7 @@ static void aws_iot_shadow_mqtt_handler(void *handler_args, __unused esp_event_b
         break;
 
     default:
-        ESP_LOGD(TAG, "unhandled event: %d", event->event_id);
+        ESP_LOGD(TAG, "unhandled mqtt event %d", event->event_id);
         break;
     }
 }
