@@ -92,6 +92,7 @@ inline static char *aws_iot_shadow_topic_name(aws_iot_shadow_handle_t handle, co
 
 static esp_err_t aws_iot_shadow_event_dispatch(esp_event_loop_handle_t event_loop, aws_iot_shadow_event_data_t *event)
 {
+    ESP_LOGD(TAG, "dispatching event %d for %s", event->event_id, event->handle->topic_prefix);
     esp_err_t err = esp_event_post_to(event_loop, AWS_IOT_SHADOW_EVENT, event->event_id, event, sizeof(*event), portMAX_DELAY);
     if (err != ESP_OK)
     {
