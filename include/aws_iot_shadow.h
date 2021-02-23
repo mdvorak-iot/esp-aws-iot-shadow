@@ -94,13 +94,16 @@ bool aws_iot_shadow_wait_for_ready(aws_iot_shadow_handle_t handle, TickType_t ti
 
 esp_err_t aws_iot_shadow_request_get(aws_iot_shadow_handle_t handle);
 
-esp_err_t aws_iot_shadow_request_update(aws_iot_shadow_handle_t handle, const cJSON *root);
+esp_err_t aws_iot_shadow_request_update_raw(aws_iot_shadow_handle_t handle, const cJSON *root);
 
-esp_err_t aws_iot_shadow_request_update_reported(aws_iot_shadow_handle_t handle, const cJSON *reported,
+esp_err_t aws_iot_shadow_request_update(aws_iot_shadow_handle_t handle,
+                                        const cJSON *desired,
+                                        const cJSON *reported,
+                                        const char *client_token);
+
+esp_err_t aws_iot_shadow_request_update_reported(aws_iot_shadow_handle_t handle,
+                                                 const cJSON *reported,
                                                  const char *client_token);
-
-esp_err_t aws_iot_shadow_request_update_desired(aws_iot_shadow_handle_t handle, const cJSON *desired,
-                                                const char *client_token);
 
 esp_err_t aws_iot_shadow_request_delete(aws_iot_shadow_handle_t handle);
 

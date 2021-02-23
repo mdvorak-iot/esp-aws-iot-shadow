@@ -16,10 +16,15 @@ static cJSON *aws_iot_shadow_parse_json(const char *data, size_t data_len)
     return root;
 }
 
+bool aws_iot_shadow_json_is_empty_object(const cJSON *obj)
+{
+    return !cJSON_IsObject(obj) || obj->child == NULL;
+}
+
 static cJSON *aws_iot_shadow_get_item_with_children(cJSON *obj, const char *key)
 {
     cJSON *item = cJSON_GetObjectItemCaseSensitive(obj, key);
-    return item && item->child ? item : NULL;
+    return item && item->child != NULL ? item : NULL;
 }
 
 cJSON *aws_iot_shadow_parse_accepted(const char *data, size_t data_len, aws_iot_shadow_event_data_t *output)

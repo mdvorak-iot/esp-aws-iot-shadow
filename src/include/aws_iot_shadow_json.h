@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+bool aws_iot_shadow_json_is_empty_object(const cJSON *obj);
+
 cJSON *aws_iot_shadow_parse_accepted(const char *data, size_t data_len, aws_iot_shadow_event_data_t *output);
 
 cJSON *aws_iot_shadow_parse_update_delta(const char *data, size_t data_len, aws_iot_shadow_event_data_t *output);

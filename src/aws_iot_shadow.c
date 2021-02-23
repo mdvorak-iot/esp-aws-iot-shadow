@@ -630,7 +630,7 @@ esp_err_t aws_iot_shadow_request_delete(aws_iot_shadow_handle_t handle)
     return msg_id != -1 ? ESP_OK : ESP_FAIL;
 }
 
-esp_err_t aws_iot_shadow_request_update(aws_iot_shadow_handle_t handle, const cJSON *root)
+esp_err_t aws_iot_shadow_request_update_raw(aws_iot_shadow_handle_t handle, const cJSON *root)
 {
     if (handle == NULL || root == NULL)
     {
@@ -659,46 +659,46 @@ esp_err_t aws_iot_shadow_request_update(aws_iot_shadow_handle_t handle, const cJ
     return msg_id != -1 ? ESP_OK : ESP_FAIL;
 }
 
-esp_err_t aws_iot_shadow_request_update_reported(aws_iot_shadow_handle_t handle, const cJSON *reported,
-                                                 const char *client_token)
+esp_err_t aws_iot_shadow_request_update(aws_iot_shadow_handle_t handle,
+                                        const cJSON *desired,
+                                        const cJSON *reported,
+                                        const char *client_token)
 {
-    if (handle == NULL || reported == NULL)
+    // Validate cJSON reference types, to avoid user error
+    if (handle == NULL || (desired != NULL && !cJSON_IsObject(desired)) || (reported != NULL && !cJSON_IsObject(reported)))
     {
         return ESP_ERR_INVALID_ARG;
+    }
+    // Don't send empty updates
+    if (aws_iot_shadow_json_is_empty_object(desired) && aws_iot_shadow_json_is_empty_object(reported))
+    {
+        return ESP_OK;
     }
 
     cJSON *root = cJSON_CreateObject();
     cJSON *state = cJSON_AddObjectToObject(root, AWS_IOT_SHADOW_JSON_STATE);
-    cJSON_AddItemReferenceToObject(state, AWS_IOT_SHADOW_JSON_REPORTED, (cJSON *)reported); // Note: function is just missing const in declaration
 
+    if (desired != NULL)
+    {
+        cJSON_AddItemReferenceToObject(state, AWS_IOT_SHADOW_JSON_DESIRED, (cJSON *)desired); // Note: function is just missing const in declaration
+    }
+    if (reported != NULL)
+    {
+        cJSON_AddItemReferenceToObject(state, AWS_IOT_SHADOW_JSON_REPORTED, (cJSON *)reported); // Note: function is just missing const in declaration
+    }
     if (client_token != NULL)
     {
         cJSON_AddStringToObject(root, AWS_IOT_SHADOW_JSON_CLIENT_TOKEN, client_token);
     }
 
-    esp_err_t err = aws_iot_shadow_request_update(handle, root);
-    cJSON_Delete(root); // Note: This does not release input json object
+    esp_err_t err = aws_iot_shadow_request_update_raw(handle, root);
+    cJSON_Delete(root); // note: this does not release input json objects
     return err;
 }
 
-esp_err_t aws_iot_shadow_request_update_desired(aws_iot_shadow_handle_t handle, const cJSON *desired,
-                                                const char *client_token)
+inline esp_err_t aws_iot_shadow_request_update_reported(aws_iot_shadow_handle_t handle,
+                                                        const cJSON *reported,
+                                                        const char *client_token)
 {
-    if (handle == NULL || desired == NULL)
-    {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    cJSON *root = cJSON_CreateObject();
-    cJSON *state = cJSON_AddObjectToObject(root, AWS_IOT_SHADOW_JSON_STATE);
-    cJSON_AddItemReferenceToObject(state, AWS_IOT_SHADOW_JSON_DESIRED, (cJSON *)desired); // Note: function is just missing const in declaration
-
-    if (client_token != NULL)
-    {
-        cJSON_AddStringToObject(root, AWS_IOT_SHADOW_JSON_CLIENT_TOKEN, client_token);
-    }
-
-    esp_err_t err = aws_iot_shadow_request_update(handle, root);
-    cJSON_Delete(root); // Note: This does not release input json object
-    return err;
+    return aws_iot_shadow_request_update(handle, NULL, reported, client_token);
 }
