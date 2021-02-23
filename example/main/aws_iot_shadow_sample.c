@@ -68,21 +68,6 @@ static void mqtt_event_handler(__unused void *handler_args, __unused esp_event_b
     }
 }
 
-//static void shadow_updated(const aws_iot_shadow_event_state_t *state)
-//{
-//    const char *welcome = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(state->data, "welcome"));
-//    if (welcome)
-//    {
-//        ESP_LOGI(TAG, "got welcome='%s'", welcome);
-//
-//        // Report back
-//        if (state->to_report)
-//        {
-//            cJSON_AddStringToObject(state->to_report, "welcome", welcome);
-//        }
-//    }
-//}
-
 static void shadow_event_handler_state_accepted(__unused void *handler_args, __unused esp_event_base_t event_base,
                                                 __unused int32_t event_id, void *event_data)
 {
