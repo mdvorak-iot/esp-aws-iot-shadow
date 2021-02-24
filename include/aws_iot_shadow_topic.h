@@ -16,6 +16,11 @@
  */
 #define SHADOW_TOPIC_MAX_LENGTH (256U)
 
+/**
+ * @brief Prefix of thing name in client_id.
+ */
+#define SHADOW_THING_NAME_PREFIX ":thing/"
+
 #define SHADOW_PREFIX_CLASSIC_FORMAT "$aws/things/%s/shadow"
 #define SHADOW_PREFIX_NAMED_FORMAT "$aws/things/%s/shadow/name/%s"
 

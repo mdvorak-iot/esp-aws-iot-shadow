@@ -450,11 +450,11 @@ const char *aws_iot_shadow_thing_name(const char *client_id)
     }
 
     // Parse thing_name
-    const char *thing_name = strstr(client_id, ":thing/");
+    const char *thing_name = strstr(client_id, SHADOW_THING_NAME_PREFIX);
     if (thing_name != NULL)
     {
         // strstr returns pointer to searched string start
-        thing_name += strlen(":thing/");
+        thing_name += strlen(SHADOW_THING_NAME_PREFIX);
     }
     return thing_name;
 }
