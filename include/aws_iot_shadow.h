@@ -1,5 +1,5 @@
-#ifndef aws_IOT_SHADOW_H_
-#define aws_IOT_SHADOW_H_
+#ifndef AWS_IOT_SHADOW_H_
+#define AWS_IOT_SHADOW_H_
 
 #include <cJSON.h>
 #include <esp_err.h>
