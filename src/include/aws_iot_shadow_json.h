@@ -9,11 +9,11 @@ extern "C" {
 
 bool aws_iot_shadow_json_is_empty_object(const cJSON *obj);
 
-cJSON *aws_iot_shadow_parse_accepted(const char *data, size_t data_len, aws_iot_shadow_event_data_t *output);
+cJSON *aws_iot_shadow_parse_accepted(const char *data, size_t data_len, struct aws_iot_shadow_event_data *output);
 
-cJSON *aws_iot_shadow_parse_update_delta(const char *data, size_t data_len, aws_iot_shadow_event_data_t *output);
+cJSON *aws_iot_shadow_parse_update_delta(const char *data, size_t data_len, struct aws_iot_shadow_event_data *output);
 
-cJSON *aws_iot_shadow_parse_error(const char *data, size_t data_len, aws_iot_shadow_event_data_t *output, aws_iot_shadow_event_error_t *error);
+cJSON *aws_iot_shadow_parse_error(const char *data, size_t data_len, struct aws_iot_shadow_event_data *output, struct aws_iot_shadow_event_error *error);
 
 #ifdef __cplusplus
 }

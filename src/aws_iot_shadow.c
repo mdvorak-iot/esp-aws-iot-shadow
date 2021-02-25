@@ -67,7 +67,7 @@ struct aws_iot_shadow_handle
     } topic_subscriptions;
 };
 
-inline static char *aws_iot_shadow_topic_name(aws_iot_shadow_handle_t handle, const char *topic_suffix,
+inline static char *aws_iot_shadow_topic_name(aws_iot_shadow_handle_ptr handle, const char *topic_suffix,
                                               char *topic_buf, uint16_t topic_buf_len)
 {
     assert(handle);
@@ -90,7 +90,7 @@ inline static char *aws_iot_shadow_topic_name(aws_iot_shadow_handle_t handle, co
     return topic_buf;
 }
 
-static esp_err_t aws_iot_shadow_event_dispatch(esp_event_loop_handle_t event_loop, aws_iot_shadow_event_data_t *event)
+static esp_err_t aws_iot_shadow_event_dispatch(esp_event_loop_handle_t event_loop, struct aws_iot_shadow_event_data *event)
 {
     ESP_LOGD(TAG, "dispatching event %d for %s", event->event_id, event->handle->topic_prefix);
     esp_err_t err = esp_event_post_to(event_loop, AWS_IOT_SHADOW_EVENT, event->event_id, event, sizeof(*event), portMAX_DELAY);
@@ -103,11 +103,11 @@ static esp_err_t aws_iot_shadow_event_dispatch(esp_event_loop_handle_t event_loo
     return esp_event_loop_run(event_loop, 0);
 }
 
-static void aws_iot_shadow_event_dispatch_accepted(aws_iot_shadow_handle_t handle,
-                                                   aws_iot_shadow_event_t event_id,
+static void aws_iot_shadow_event_dispatch_accepted(aws_iot_shadow_handle_ptr handle,
+                                                   enum aws_iot_shadow_event event_id,
                                                    esp_mqtt_event_handle_t event)
 {
-    aws_iot_shadow_event_data_t shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, event_id);
+    struct aws_iot_shadow_event_data shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, event_id);
 
     // Parse
     cJSON *root = aws_iot_shadow_parse_accepted(event->data, event->data_len, &shadow_event);
@@ -138,10 +138,10 @@ cleanup:
 }
 
 #if AWS_IOT_SHADOW_SUPPORT_DELTA
-static void aws_iot_shadow_event_dispatch_update_delta(aws_iot_shadow_handle_t handle,
+static void aws_iot_shadow_event_dispatch_update_delta(aws_iot_shadow_handle_ptr handle,
                                                        esp_mqtt_event_handle_t event)
 {
-    aws_iot_shadow_event_data_t shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_IOT_SHADOW_EVENT_UPDATE_DELTA);
+    struct aws_iot_shadow_event_data shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_IOT_SHADOW_EVENT_UPDATE_DELTA);
 
     // Parse
     cJSON *root = aws_iot_shadow_parse_update_delta(event->data, event->data_len, &shadow_event);
@@ -172,10 +172,10 @@ cleanup:
 }
 #endif
 
-static void aws_iot_shadow_event_dispatch_error(aws_iot_shadow_handle_t handle, esp_mqtt_event_handle_t event)
+static void aws_iot_shadow_event_dispatch_error(aws_iot_shadow_handle_ptr handle, esp_mqtt_event_handle_t event)
 {
-    aws_iot_shadow_event_data_t shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_IOT_SHADOW_EVENT_ERROR);
-    aws_iot_shadow_event_error_t shadow_error = {};
+    struct aws_iot_shadow_event_data shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_IOT_SHADOW_EVENT_ERROR);
+    struct aws_iot_shadow_event_error shadow_error = {};
 
     // TODO provide info, what action actually failed
 
@@ -199,7 +199,7 @@ cleanup:
     cJSON_Delete(root);
 }
 
-static void aws_iot_shadow_mqtt_connected(aws_iot_shadow_handle_t handle)
+static void aws_iot_shadow_mqtt_connected(aws_iot_shadow_handle_ptr handle)
 {
     // Reset tracking
     xEventGroupClearBits(handle->event_group, SUBSCRIBED_ALL_BITS);
@@ -223,15 +223,15 @@ static void aws_iot_shadow_mqtt_connected(aws_iot_shadow_handle_t handle)
     ESP_LOGI(TAG, "%s connected to mqtt server", handle->topic_prefix);
 }
 
-static void aws_iot_shadow_mqtt_disconnected(aws_iot_shadow_handle_t handle)
+static void aws_iot_shadow_mqtt_disconnected(aws_iot_shadow_handle_ptr handle)
 {
     xEventGroupClearBits(handle->event_group, CONNECTED_BIT | SUBSCRIBED_ALL_BITS);
 
-    aws_iot_shadow_event_data_t shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_IOT_SHADOW_EVENT_DISCONNECTED);
+    struct aws_iot_shadow_event_data shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_IOT_SHADOW_EVENT_DISCONNECTED);
     aws_iot_shadow_event_dispatch(handle->event_loop, &shadow_event);
 }
 
-static void aws_iot_shadow_mqtt_subscribed(aws_iot_shadow_handle_t handle, esp_mqtt_event_handle_t event)
+static void aws_iot_shadow_mqtt_subscribed(aws_iot_shadow_handle_ptr handle, esp_mqtt_event_handle_t event)
 {
     EventBits_t bits = 0;
 
@@ -283,7 +283,7 @@ static void aws_iot_shadow_mqtt_subscribed(aws_iot_shadow_handle_t handle, esp_m
     {
         ESP_LOGI(TAG, "%s is ready", handle->topic_prefix);
 
-        aws_iot_shadow_event_data_t shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_IOT_SHADOW_EVENT_READY);
+        struct aws_iot_shadow_event_data shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_IOT_SHADOW_EVENT_READY);
         esp_err_t err = aws_iot_shadow_event_dispatch(handle->event_loop, &shadow_event);
         if (err != ESP_OK)
         {
@@ -299,7 +299,7 @@ static void aws_iot_shadow_mqtt_subscribed(aws_iot_shadow_handle_t handle, esp_m
     }
 }
 
-static void aws_iot_shadow_mqtt_data_get_op(aws_iot_shadow_handle_t handle, esp_mqtt_event_handle_t event,
+static void aws_iot_shadow_mqtt_data_get_op(aws_iot_shadow_handle_ptr handle, esp_mqtt_event_handle_t event,
                                             const char *action, uint16_t action_len)
 {
     const char *op = action + AWS_IOT_SHADOW_OP_GET_LENGTH;
@@ -319,7 +319,7 @@ static void aws_iot_shadow_mqtt_data_get_op(aws_iot_shadow_handle_t handle, esp_
     }
 }
 
-static void aws_iot_shadow_mqtt_data_update_op(aws_iot_shadow_handle_t handle, esp_mqtt_event_handle_t event,
+static void aws_iot_shadow_mqtt_data_update_op(aws_iot_shadow_handle_ptr handle, esp_mqtt_event_handle_t event,
                                                const char *action, uint16_t action_len)
 {
     const char *op = action + AWS_IOT_SHADOW_OP_UPDATE_LENGTH;
@@ -346,7 +346,7 @@ static void aws_iot_shadow_mqtt_data_update_op(aws_iot_shadow_handle_t handle, e
 #endif
 }
 
-static void aws_iot_shadow_mqtt_data_delete_op(aws_iot_shadow_handle_t handle, esp_mqtt_event_handle_t event,
+static void aws_iot_shadow_mqtt_data_delete_op(aws_iot_shadow_handle_ptr handle, esp_mqtt_event_handle_t event,
                                                const char *action, uint16_t action_len)
 {
     const char *op = action + AWS_IOT_SHADOW_OP_DELETE_LENGTH;
@@ -356,7 +356,7 @@ static void aws_iot_shadow_mqtt_data_delete_op(aws_iot_shadow_handle_t handle, e
         && strncmp(op, AWS_IOT_SHADOW_SUFFIX_ACCEPTED, AWS_IOT_SHADOW_SUFFIX_ACCEPTED_LENGTH) == 0)
     {
         // /delete/accepted
-        aws_iot_shadow_event_data_t shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_IOT_SHADOW_EVENT_DELETE_ACCEPTED);
+        struct aws_iot_shadow_event_data shadow_event = AWS_IOT_SHADOW_EVENT_DATA_INITIALIZER(handle, AWS_IOT_SHADOW_EVENT_DELETE_ACCEPTED);
         esp_err_t err = aws_iot_shadow_event_dispatch(handle->event_loop, &shadow_event);
         if (err != ESP_OK)
         {
@@ -371,7 +371,7 @@ static void aws_iot_shadow_mqtt_data_delete_op(aws_iot_shadow_handle_t handle, e
     }
 }
 
-static void aws_iot_shadow_mqtt_data(aws_iot_shadow_handle_t handle, esp_mqtt_event_handle_t event)
+static void aws_iot_shadow_mqtt_data(aws_iot_shadow_handle_ptr handle, esp_mqtt_event_handle_t event)
 {
     ESP_LOGD(TAG, "received %.*s payload (%d bytes): %.*s", event->topic_len, event->topic, event->data_len, event->data_len, event->data ? event->data : "");
 
@@ -411,7 +411,7 @@ static void aws_iot_shadow_mqtt_data(aws_iot_shadow_handle_t handle, esp_mqtt_ev
 
 static void aws_iot_shadow_mqtt_handler(void *handler_args, __unused esp_event_base_t base, __unused int32_t event_id, void *event_data)
 {
-    aws_iot_shadow_handle_t handle = (aws_iot_shadow_handle_t)handler_args;
+    aws_iot_shadow_handle_ptr handle = (aws_iot_shadow_handle_ptr)handler_args;
     esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
 
     switch (event->event_id)
@@ -460,7 +460,7 @@ const char *aws_iot_shadow_thing_name(const char *client_id)
 }
 
 esp_err_t aws_iot_shadow_init(esp_mqtt_client_handle_t client, const char *thing_name, const char *shadow_name,
-                              aws_iot_shadow_handle_t *handle)
+                              aws_iot_shadow_handle_ptr *handle)
 {
     if (client == NULL || thing_name == NULL || handle == NULL)
     {
@@ -477,7 +477,7 @@ esp_err_t aws_iot_shadow_init(esp_mqtt_client_handle_t client, const char *thing
     }
 
     // Alloc
-    aws_iot_shadow_handle_t result = (aws_iot_shadow_handle_t)malloc(sizeof(*result));
+    aws_iot_shadow_handle_ptr result = (aws_iot_shadow_handle_ptr)malloc(sizeof(*result));
     if (result == NULL)
     {
         return ESP_ERR_NO_MEM;
@@ -538,7 +538,7 @@ esp_err_t aws_iot_shadow_init(esp_mqtt_client_handle_t client, const char *thing
     return ESP_OK;
 }
 
-esp_err_t aws_iot_shadow_delete(aws_iot_shadow_handle_t handle)
+esp_err_t aws_iot_shadow_delete(aws_iot_shadow_handle_ptr handle)
 {
     if (handle == NULL)
     {
@@ -566,13 +566,13 @@ esp_err_t aws_iot_shadow_delete(aws_iot_shadow_handle_t handle)
     return ESP_OK;
 }
 
-inline esp_err_t aws_iot_shadow_handler_register(aws_iot_shadow_handle_t handle, aws_iot_shadow_event_t event_id,
+inline esp_err_t aws_iot_shadow_handler_register(aws_iot_shadow_handle_ptr handle, enum aws_iot_shadow_event event_id,
                                                  esp_event_handler_t event_handler, void *event_handler_arg)
 {
     return aws_iot_shadow_handler_instance_register(handle, event_id, event_handler, event_handler_arg, NULL);
 }
 
-inline esp_err_t aws_iot_shadow_handler_instance_register(aws_iot_shadow_handle_t handle, aws_iot_shadow_event_t event_id,
+inline esp_err_t aws_iot_shadow_handler_instance_register(aws_iot_shadow_handle_ptr handle, enum aws_iot_shadow_event event_id,
                                                           esp_event_handler_t event_handler, void *event_handler_arg,
                                                           esp_event_handler_instance_t *handler_ctx_arg)
 {
@@ -585,7 +585,7 @@ inline esp_err_t aws_iot_shadow_handler_instance_register(aws_iot_shadow_handle_
                                                     event_handler, event_handler_arg, handler_ctx_arg);
 }
 
-inline esp_err_t aws_iot_shadow_handler_instance_unregister(aws_iot_shadow_handle_t handle, aws_iot_shadow_event_t event_id,
+inline esp_err_t aws_iot_shadow_handler_instance_unregister(aws_iot_shadow_handle_ptr handle, enum aws_iot_shadow_event event_id,
                                                             esp_event_handler_instance_t handler_ctx_arg)
 {
     if (handle == NULL)
@@ -596,7 +596,7 @@ inline esp_err_t aws_iot_shadow_handler_instance_unregister(aws_iot_shadow_handl
     return esp_event_handler_instance_unregister_with(handle->event_loop, AWS_IOT_SHADOW_EVENT, event_id, handler_ctx_arg);
 }
 
-bool aws_iot_shadow_is_ready(aws_iot_shadow_handle_t handle)
+bool aws_iot_shadow_is_ready(aws_iot_shadow_handle_ptr handle)
 {
     if (handle == NULL)
     {
@@ -607,7 +607,7 @@ bool aws_iot_shadow_is_ready(aws_iot_shadow_handle_t handle)
     return (bits & SUBSCRIBED_ALL_BITS) == SUBSCRIBED_ALL_BITS;
 }
 
-bool aws_iot_shadow_wait_for_ready(aws_iot_shadow_handle_t handle, TickType_t ticks_to_wait)
+bool aws_iot_shadow_wait_for_ready(aws_iot_shadow_handle_ptr handle, TickType_t ticks_to_wait)
 {
     if (handle == NULL)
     {
@@ -618,7 +618,7 @@ bool aws_iot_shadow_wait_for_ready(aws_iot_shadow_handle_t handle, TickType_t ti
     return (bits & SUBSCRIBED_ALL_BITS) == SUBSCRIBED_ALL_BITS;
 }
 
-esp_err_t aws_iot_shadow_request_get(aws_iot_shadow_handle_t handle)
+esp_err_t aws_iot_shadow_request_get(aws_iot_shadow_handle_ptr handle)
 {
     char topic_name[AWS_IOT_SHADOW_TOPIC_MAX_LENGTH] = {};
     if (aws_iot_shadow_topic_name(handle, AWS_IOT_SHADOW_OP_GET, topic_name, sizeof(topic_name)) == NULL)
@@ -631,7 +631,7 @@ esp_err_t aws_iot_shadow_request_get(aws_iot_shadow_handle_t handle)
     return msg_id != -1 ? ESP_OK : ESP_FAIL;
 }
 
-esp_err_t aws_iot_shadow_request_delete(aws_iot_shadow_handle_t handle)
+esp_err_t aws_iot_shadow_request_delete(aws_iot_shadow_handle_ptr handle)
 {
     if (handle == NULL)
     {
@@ -649,7 +649,7 @@ esp_err_t aws_iot_shadow_request_delete(aws_iot_shadow_handle_t handle)
     return msg_id != -1 ? ESP_OK : ESP_FAIL;
 }
 
-esp_err_t aws_iot_shadow_request_update_raw(aws_iot_shadow_handle_t handle, const cJSON *root)
+esp_err_t aws_iot_shadow_request_update_raw(aws_iot_shadow_handle_ptr handle, const cJSON *root)
 {
     if (handle == NULL || root == NULL)
     {
@@ -678,7 +678,7 @@ esp_err_t aws_iot_shadow_request_update_raw(aws_iot_shadow_handle_t handle, cons
     return msg_id != -1 ? ESP_OK : ESP_FAIL;
 }
 
-esp_err_t aws_iot_shadow_request_update(aws_iot_shadow_handle_t handle,
+esp_err_t aws_iot_shadow_request_update(aws_iot_shadow_handle_ptr handle,
                                         const cJSON *desired,
                                         const cJSON *reported,
                                         const char *client_token)
@@ -715,7 +715,7 @@ esp_err_t aws_iot_shadow_request_update(aws_iot_shadow_handle_t handle,
     return err;
 }
 
-inline esp_err_t aws_iot_shadow_request_update_reported(aws_iot_shadow_handle_t handle,
+inline esp_err_t aws_iot_shadow_request_update_reported(aws_iot_shadow_handle_ptr handle,
                                                         const cJSON *reported,
                                                         const char *client_token)
 {

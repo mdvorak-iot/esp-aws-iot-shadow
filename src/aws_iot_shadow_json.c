@@ -27,7 +27,7 @@ static cJSON *aws_iot_shadow_get_item_with_children(cJSON *obj, const char *key)
     return item && item->child != NULL ? item : NULL;
 }
 
-cJSON *aws_iot_shadow_parse_accepted(const char *data, size_t data_len, aws_iot_shadow_event_data_t *output)
+cJSON *aws_iot_shadow_parse_accepted(const char *data, size_t data_len, struct aws_iot_shadow_event_data *output)
 {
     cJSON *root = aws_iot_shadow_parse_json(data, data_len);
     cJSON *state = cJSON_GetObjectItemCaseSensitive(root, AWS_IOT_SHADOW_JSON_STATE);
@@ -42,7 +42,7 @@ cJSON *aws_iot_shadow_parse_accepted(const char *data, size_t data_len, aws_iot_
 }
 
 #if AWS_IOT_SHADOW_SUPPORT_DELTA
-cJSON *aws_iot_shadow_parse_update_delta(const char *data, size_t data_len, aws_iot_shadow_event_data_t *output)
+cJSON *aws_iot_shadow_parse_update_delta(const char *data, size_t data_len, struct aws_iot_shadow_event_data *output)
 {
     cJSON *root = aws_iot_shadow_parse_json(data, data_len);
     // Note: delta document have attributes directly under state attribute
@@ -53,7 +53,7 @@ cJSON *aws_iot_shadow_parse_update_delta(const char *data, size_t data_len, aws_
 }
 #endif
 
-cJSON *aws_iot_shadow_parse_error(const char *data, size_t data_len, aws_iot_shadow_event_data_t *output, aws_iot_shadow_event_error_t *error)
+cJSON *aws_iot_shadow_parse_error(const char *data, size_t data_len, struct aws_iot_shadow_event_data *output, struct aws_iot_shadow_event_error *error)
 {
     cJSON *root = aws_iot_shadow_parse_json(data, data_len);
     cJSON *code = cJSON_GetObjectItemCaseSensitive(root, AWS_IOT_SHADOW_JSON_CODE);

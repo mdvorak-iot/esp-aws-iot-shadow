@@ -11,7 +11,7 @@ static const char TAG[] = "example";
 
 static bool mqtt_started = false;
 static esp_mqtt_client_handle_t mqtt_client = NULL;
-static aws_iot_shadow_handle_t shadow_client = NULL;
+static aws_iot_shadow_handle_ptr shadow_client = NULL;
 
 static const char SHADOW_KEY_MY_VALUE[] = "my_value";
 static int my_value = 42; // Initialize with default
@@ -71,7 +71,7 @@ static void mqtt_event_handler(__unused void *handler_args, __unused esp_event_b
 static void shadow_event_handler_state_accepted(__unused void *handler_args, __unused esp_event_base_t event_base,
                                                 __unused int32_t event_id, void *event_data)
 {
-    const aws_iot_shadow_event_data_t *event = (const aws_iot_shadow_event_data_t *)event_data;
+    const struct aws_iot_shadow_event_data *event = (const struct aws_iot_shadow_event_data *)event_data;
 
     // Ignore if desired is missing
     if (!event->desired)
@@ -121,14 +121,14 @@ cleanup:
 static void shadow_event_handler_error(__unused void *handler_args, __unused esp_event_base_t event_base,
                                        __unused int32_t event_id, void *event_data)
 {
-    const aws_iot_shadow_event_data_t *event = (const aws_iot_shadow_event_data_t *)event_data;
+    const struct aws_iot_shadow_event_data *event = (const struct aws_iot_shadow_event_data *)event_data;
     ESP_LOGW(TAG, "shadow error %d %s", event->error->code, event->error->message);
 }
 
 // Note: this is for demo, it is not usually needed
 static void shadow_event_handler_debug(__unused void *handler_args, __unused esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
-    const aws_iot_shadow_event_data_t *event = (const aws_iot_shadow_event_data_t *)event_data;
+    const struct aws_iot_shadow_event_data *event = (const struct aws_iot_shadow_event_data *)event_data;
     const cJSON *version_obj = cJSON_GetObjectItemCaseSensitive(event->root, AWS_IOT_SHADOW_JSON_VERSION);
     const char *client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(event->root, AWS_IOT_SHADOW_JSON_CLIENT_TOKEN));
 
