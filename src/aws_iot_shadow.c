@@ -21,6 +21,7 @@ ESP_EVENT_DEFINE_BASE(AWS_IOT_SHADOW_EVENT);
         .desired = NULL,                                          \
         .reported = NULL,                                         \
         .delta = NULL,                                            \
+        .version = 0,                                             \
         .client_token = NULL,                                     \
         .error = NULL,                                            \
     }
