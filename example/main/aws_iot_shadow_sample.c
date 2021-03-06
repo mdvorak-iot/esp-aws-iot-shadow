@@ -210,7 +210,6 @@ static void setup()
     ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED, shadow_event_handler_state_accepted, NULL));
     ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_GET_REJECTED, shadow_event_handler_error, NULL));
     ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_UPDATE_REJECTED, shadow_event_handler_error, NULL));
-    ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_DELETE_REJECTED, shadow_event_handler_error, NULL));
 
     // Connect
     ESP_ERROR_CHECK(esp_wifi_connect());
