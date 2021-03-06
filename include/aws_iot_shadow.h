@@ -76,6 +76,7 @@ struct aws_iot_shadow_event_data
     const cJSON *desired;
     const cJSON *reported;
     const cJSON *delta;
+    uint64_t version;
     const char *client_token;
     const struct aws_iot_shadow_event_error *error;
 };
