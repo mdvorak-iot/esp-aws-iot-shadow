@@ -43,20 +43,24 @@ enum aws_iot_shadow_event
     AWS_IOT_SHADOW_EVENT_READY = 0,
     /** @brief Disconnected from the server */
     AWS_IOT_SHADOW_EVENT_DISCONNECTED = 1,
-    /** @brief Received error to an action */
-    AWS_IOT_SHADOW_EVENT_ERROR = 2, // TODO replace with specific events
     /** @brief Received a get state */
-    AWS_IOT_SHADOW_EVENT_GET_ACCEPTED = 3,
-    /** @brief Shadow was deleted */
-    AWS_IOT_SHADOW_EVENT_DELETE_ACCEPTED = 4,
+    AWS_IOT_SHADOW_EVENT_GET_ACCEPTED = 2,
     /** @brief Received an updated state */
-    AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED = 5,
+    AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED = 3,
 #if AWS_IOT_SHADOW_SUPPORT_DELTA
     /** @brief Received a state delta */
-    AWS_IOT_SHADOW_EVENT_UPDATE_DELTA = 6,
+    AWS_IOT_SHADOW_EVENT_UPDATE_DELTA = 4,
 #endif
+    /** @brief Shadow was deleted */
+    AWS_IOT_SHADOW_EVENT_DELETE_ACCEPTED = 5,
+    /** @brief Received error to a get action */
+    AWS_IOT_SHADOW_EVENT_GET_REJECTED = 6,
+    /** @brief Received error to an update action */
+    AWS_IOT_SHADOW_EVENT_UPDATE_REJECTED = 7,
+    /** @brief Received error to a delete action */
+    AWS_IOT_SHADOW_EVENT_DELETE_REJECTED = 8,
     /** Invalid event ID */
-    AWS_IOT_SHADOW_EVENT_MAX = 7,
+    AWS_IOT_SHADOW_EVENT_MAX = 9,
 };
 
 struct aws_iot_shadow_event_data

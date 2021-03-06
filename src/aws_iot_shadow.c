@@ -224,7 +224,7 @@ static void aws_iot_shadow_mqtt_data_get_op(aws_iot_shadow_handle_ptr handle, es
              && strncmp(op, AWS_IOT_SHADOW_SUFFIX_REJECTED, AWS_IOT_SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
     {
         // /get/rejected
-        aws_iot_shadow_event_dispatch(handle, AWS_IOT_SHADOW_EVENT_ERROR, event);
+        aws_iot_shadow_event_dispatch(handle, AWS_IOT_SHADOW_EVENT_GET_REJECTED, event);
     }
 }
 
@@ -244,7 +244,7 @@ static void aws_iot_shadow_mqtt_data_update_op(aws_iot_shadow_handle_ptr handle,
              && strncmp(op, AWS_IOT_SHADOW_SUFFIX_REJECTED, AWS_IOT_SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
     {
         // /update/rejected
-        aws_iot_shadow_event_dispatch(handle, AWS_IOT_SHADOW_EVENT_ERROR, event);
+        aws_iot_shadow_event_dispatch(handle, AWS_IOT_SHADOW_EVENT_UPDATE_REJECTED, event);
     }
 #if AWS_IOT_SHADOW_SUPPORT_DELTA
     else if (op_len == AWS_IOT_SHADOW_SUFFIX_DELTA_LENGTH && strncmp(op, AWS_IOT_SHADOW_SUFFIX_DELTA, AWS_IOT_SHADOW_SUFFIX_DELTA_LENGTH) == 0)
@@ -271,7 +271,7 @@ static void aws_iot_shadow_mqtt_data_delete_op(aws_iot_shadow_handle_ptr handle,
              && strncmp(op, AWS_IOT_SHADOW_SUFFIX_REJECTED, AWS_IOT_SHADOW_SUFFIX_REJECTED_LENGTH) == 0)
     {
         // /delete/rejected
-        aws_iot_shadow_event_dispatch(handle, AWS_IOT_SHADOW_EVENT_ERROR, event);
+        aws_iot_shadow_event_dispatch(handle, AWS_IOT_SHADOW_EVENT_DELETE_REJECTED, event);
     }
 }
 

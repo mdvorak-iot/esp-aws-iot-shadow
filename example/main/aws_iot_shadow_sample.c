@@ -131,7 +131,7 @@ static void shadow_event_handler_error(__unused void *handler_args, __unused esp
     cJSON *message = cJSON_GetObjectItemCaseSensitive(root, AWS_IOT_SHADOW_JSON_MESSAGE);
 
     // Log
-    ESP_LOGW(TAG, "shadow error %d %s", code ? code->valueint : -1, message ? message->valuestring : "");
+    ESP_LOGW(TAG, "shadow error %d: %d %s", event->event_id, code ? code->valueint : -1, message ? message->valuestring : "");
 }
 
 static void setup()
@@ -206,9 +206,11 @@ static void setup()
 
     // Shadow
     ESP_ERROR_CHECK(aws_iot_shadow_init(mqtt_client, aws_iot_shadow_thing_name(mqtt_cfg.client_id), NULL, &shadow_client));
-    ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_ERROR, shadow_event_handler_error, NULL));
     ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_GET_ACCEPTED, shadow_event_handler_state_accepted, NULL));
     ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED, shadow_event_handler_state_accepted, NULL));
+    ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_GET_REJECTED, shadow_event_handler_error, NULL));
+    ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_UPDATE_REJECTED, shadow_event_handler_error, NULL));
+    ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_DELETE_REJECTED, shadow_event_handler_error, NULL));
 
     // Connect
     ESP_ERROR_CHECK(esp_wifi_connect());
