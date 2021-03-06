@@ -1,7 +1,6 @@
 #ifndef AWS_IOT_SHADOW_H_
 #define AWS_IOT_SHADOW_H_
 
-#include <cJSON.h>
 #include <esp_err.h>
 #include <mqtt_client.h>
 
@@ -45,7 +44,7 @@ enum aws_iot_shadow_event
     /** @brief Disconnected from the server */
     AWS_IOT_SHADOW_EVENT_DISCONNECTED = 1,
     /** @brief Received error to an action */
-    AWS_IOT_SHADOW_EVENT_ERROR = 2,
+    AWS_IOT_SHADOW_EVENT_ERROR = 2, // TODO replace with specific events
     /** @brief Received a get state */
     AWS_IOT_SHADOW_EVENT_GET_ACCEPTED = 3,
     /** @brief Shadow was deleted */
@@ -60,25 +59,14 @@ enum aws_iot_shadow_event
     AWS_IOT_SHADOW_EVENT_MAX = 7,
 };
 
-struct aws_iot_shadow_event_error
-{
-    int code;
-    const char *message;
-};
-
 struct aws_iot_shadow_event_data
 {
     enum aws_iot_shadow_event event_id;
     aws_iot_shadow_handle_ptr handle;
     const char *thing_name;
     const char *shadow_name;
-    const cJSON *root;
-    const cJSON *desired;
-    const cJSON *reported;
-    const cJSON *delta;
-    uint64_t version;
-    const char *client_token;
-    const struct aws_iot_shadow_event_error *error;
+    const char *data;
+    size_t data_len;
 };
 
 esp_err_t aws_iot_shadow_init(esp_mqtt_client_handle_t client, const char *thing_name, const char *shadow_name,
@@ -111,16 +99,7 @@ bool aws_iot_shadow_wait_for_ready(aws_iot_shadow_handle_ptr handle, TickType_t 
 
 esp_err_t aws_iot_shadow_request_get(aws_iot_shadow_handle_ptr handle);
 
-esp_err_t aws_iot_shadow_request_update_raw(aws_iot_shadow_handle_ptr handle, const cJSON *root);
-
-esp_err_t aws_iot_shadow_request_update(aws_iot_shadow_handle_ptr handle,
-                                        const cJSON *desired,
-                                        const cJSON *reported,
-                                        const char *client_token);
-
-esp_err_t aws_iot_shadow_request_update_reported(aws_iot_shadow_handle_ptr handle,
-                                                 const cJSON *reported,
-                                                 const char *client_token);
+esp_err_t aws_iot_shadow_request_update(aws_iot_shadow_handle_ptr handle, const char *data, size_t data_len);
 
 esp_err_t aws_iot_shadow_request_delete(aws_iot_shadow_handle_ptr handle);
 

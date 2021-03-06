@@ -1,5 +1,6 @@
 #include "aws_iot_shadow.h"
 #include "aws_iot_shadow_mqtt_error.h"
+#include <cJSON.h>
 #include <esp_err.h>
 #include <esp_log.h>
 #include <esp_tls.h>
@@ -73,17 +74,26 @@ static void shadow_event_handler_state_accepted(__unused void *handler_args, __u
 {
     const struct aws_iot_shadow_event_data *event = (const struct aws_iot_shadow_event_data *)event_data;
 
+    char *to_update_str = NULL;
+    cJSON *to_update = NULL;
+
+    // Parse
+    // TODO use with length in newer cjson version
+    cJSON *root = cJSON_ParseWithOpts(event->data, NULL, false);
+    cJSON *desired = cJSON_GetObjectItemCaseSensitive(root, AWS_IOT_SHADOW_JSON_DESIRED);
+
     // Ignore if desired is missing
-    if (!event->desired)
+    if (!desired)
     {
-        return;
+        goto cleanup;
     }
 
-    cJSON *to_desire = NULL;
-    cJSON *to_report = cJSON_CreateObject();
+    to_update = cJSON_CreateObject();
+    cJSON *to_state = cJSON_AddObjectToObject(to_update, AWS_IOT_SHADOW_JSON_STATE);
+    cJSON *to_report = cJSON_AddObjectToObject(to_state, AWS_IOT_SHADOW_JSON_REPORTED);
 
     // Handle change
-    const cJSON *my_value_obj = cJSON_GetObjectItemCaseSensitive(event->desired, SHADOW_KEY_MY_VALUE);
+    const cJSON *my_value_obj = cJSON_GetObjectItemCaseSensitive(desired, SHADOW_KEY_MY_VALUE);
     if (cJSON_IsNumber(my_value_obj))
     {
         my_value = my_value_obj->valueint;
@@ -93,19 +103,9 @@ static void shadow_event_handler_state_accepted(__unused void *handler_args, __u
     // Report
     cJSON_AddNumberToObject(to_report, SHADOW_KEY_MY_VALUE, my_value);
 
-    // Initialize desired with current values - get accepted contains always whole desired set
-    // Note: this is not needed, but it can make life much easier
-    if (event->event_id == AWS_IOT_SHADOW_EVENT_GET_ACCEPTED)
-    {
-        to_desire = cJSON_CreateObject();
-        if (!cJSON_HasObjectItem(event->desired, SHADOW_KEY_MY_VALUE))
-        {
-            cJSON_AddNumberToObject(to_desire, SHADOW_KEY_MY_VALUE, my_value);
-        }
-    }
-
     // Publish event
-    esp_err_t err = aws_iot_shadow_request_update(event->handle, to_desire, to_report, NULL);
+    to_update_str = cJSON_PrintUnformatted(to_update);
+    esp_err_t err = aws_iot_shadow_request_update(event->handle, to_update_str, strlen(to_update_str));
     if (err != ESP_OK)
     {
         ESP_LOGW(TAG, "failed to publish update: %d (%s)", err, esp_err_to_name(err));
@@ -114,25 +114,24 @@ static void shadow_event_handler_state_accepted(__unused void *handler_args, __u
 
 cleanup:
     // Cleanup
-    cJSON_Delete(to_desire);
-    cJSON_Delete(to_report);
+    cJSON_Delete(root);
+    cJSON_Delete(to_update);
+    free(to_update_str);
 }
 
 static void shadow_event_handler_error(__unused void *handler_args, __unused esp_event_base_t event_base,
                                        __unused int32_t event_id, void *event_data)
 {
     const struct aws_iot_shadow_event_data *event = (const struct aws_iot_shadow_event_data *)event_data;
-    ESP_LOGW(TAG, "shadow error %d %s", event->error->code, event->error->message);
-}
 
-// Note: this is for demo, it is not usually needed
-static void shadow_event_handler_debug(__unused void *handler_args, __unused esp_event_base_t event_base, int32_t event_id, void *event_data)
-{
-    const struct aws_iot_shadow_event_data *event = (const struct aws_iot_shadow_event_data *)event_data;
-    const cJSON *version_obj = cJSON_GetObjectItemCaseSensitive(event->root, AWS_IOT_SHADOW_JSON_VERSION);
-    const char *client_token = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(event->root, AWS_IOT_SHADOW_JSON_CLIENT_TOKEN));
+    // Parse
+    // TODO use with length in newer cjson version
+    cJSON *root = cJSON_ParseWithOpts(event->data, NULL, false);
+    cJSON *code = cJSON_GetObjectItemCaseSensitive(root, AWS_IOT_SHADOW_JSON_CODE);
+    cJSON *message = cJSON_GetObjectItemCaseSensitive(root, AWS_IOT_SHADOW_JSON_MESSAGE);
 
-    ESP_LOGI(TAG, "received shadow event %d for %s/%s, version %.0f, client_token '%s'", event_id, event->thing_name, event->shadow_name, version_obj ? version_obj->valuedouble : -1, client_token ? client_token : "");
+    // Log
+    ESP_LOGW(TAG, "shadow error %d %s", code ? code->valueint : -1, message ? message->valuestring : "");
 }
 
 static void setup()
@@ -207,7 +206,6 @@ static void setup()
 
     // Shadow
     ESP_ERROR_CHECK(aws_iot_shadow_init(mqtt_client, aws_iot_shadow_thing_name(mqtt_cfg.client_id), NULL, &shadow_client));
-    ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_ANY, shadow_event_handler_debug, NULL));
     ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_ERROR, shadow_event_handler_error, NULL));
     ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_GET_ACCEPTED, shadow_event_handler_state_accepted, NULL));
     ESP_ERROR_CHECK(aws_iot_shadow_handler_register(shadow_client, AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED, shadow_event_handler_state_accepted, NULL));
@@ -222,8 +220,12 @@ static void setup()
 static _Noreturn void run()
 {
     // Reuse allocated object every cycle, otherwise it would have to been deleted
-    cJSON *reported = cJSON_CreateObject();
-    cJSON *now_obj = cJSON_AddNumberToObject(reported, "now", 0);
+    cJSON *to_update = cJSON_CreateObject();
+    cJSON *to_state = cJSON_AddObjectToObject(to_update, AWS_IOT_SHADOW_JSON_STATE);
+    cJSON *to_report = cJSON_AddObjectToObject(to_state, AWS_IOT_SHADOW_JSON_REPORTED);
+    cJSON *now_obj = cJSON_AddNumberToObject(to_report, "now", 0);
+
+    char buf[2048] = {};
 
     for (;;)
     {
@@ -233,7 +235,14 @@ static _Noreturn void run()
         time(&now);
 
         cJSON_SetIntValue(now_obj, now);
-        aws_iot_shadow_request_update(shadow_client, NULL, reported, NULL);
+        if (cJSON_PrintPreallocated(to_update, buf, sizeof(buf), false))
+        {
+            aws_iot_shadow_request_update(shadow_client, buf, strlen(buf));
+        }
+        else
+        {
+            ESP_LOGW(TAG, "failed to print json");
+        }
     }
 }
 
