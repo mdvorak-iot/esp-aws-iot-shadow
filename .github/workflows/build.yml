@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         AWS_IOT_SHADOW_SUPPORT_DELTA: [ 0, 1 ]
-        CONFIG_AWS_IOT_SHADOW_SUPPORT_DELETE: [ 0, 1 ]
+        AWS_IOT_SHADOW_SUPPORT_DELETE: [ 0, 1 ]
 
     steps:
       - uses: actions/checkout@v2
