@@ -21,6 +21,10 @@ extern "C" {
 #define AWS_IOT_SHADOW_SUPPORT_DELTA CONFIG_AWS_IOT_SHADOW_SUPPORT_DELTA
 #endif
 
+#ifndef AWS_IOT_SHADOW_SUPPORT_DELETE
+#define AWS_IOT_SHADOW_SUPPORT_DELETE CONFIG_AWS_IOT_SHADOW_SUPPORT_DELETE
+#endif
+
 ESP_EVENT_DECLARE_BASE(AWS_IOT_SHADOW_EVENT);
 
 typedef struct aws_iot_shadow_handle *aws_iot_shadow_handle_ptr;
@@ -45,20 +49,22 @@ enum aws_iot_shadow_event
     AWS_IOT_SHADOW_EVENT_DISCONNECTED = 1,
     /** @brief Received a get state */
     AWS_IOT_SHADOW_EVENT_GET_ACCEPTED = 2,
+    /** @brief Received error to a get action */
+    AWS_IOT_SHADOW_EVENT_GET_REJECTED = 3,
     /** @brief Received an updated state */
-    AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED = 3,
+    AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED = 4,
+    /** @brief Received error to an update action */
+    AWS_IOT_SHADOW_EVENT_UPDATE_REJECTED = 5,
 #if AWS_IOT_SHADOW_SUPPORT_DELTA
     /** @brief Received a state delta */
-    AWS_IOT_SHADOW_EVENT_UPDATE_DELTA = 4,
+    AWS_IOT_SHADOW_EVENT_UPDATE_DELTA = 6,
 #endif
+#if AWS_IOT_SHADOW_SUPPORT_DELETE
     /** @brief Shadow was deleted */
-    AWS_IOT_SHADOW_EVENT_DELETE_ACCEPTED = 5,
-    /** @brief Received error to a get action */
-    AWS_IOT_SHADOW_EVENT_GET_REJECTED = 6,
-    /** @brief Received error to an update action */
-    AWS_IOT_SHADOW_EVENT_UPDATE_REJECTED = 7,
+    AWS_IOT_SHADOW_EVENT_DELETE_ACCEPTED = 7,
     /** @brief Received error to a delete action */
     AWS_IOT_SHADOW_EVENT_DELETE_REJECTED = 8,
+#endif
     /** Invalid event ID */
     AWS_IOT_SHADOW_EVENT_MAX = 9,
 };
@@ -105,7 +111,9 @@ esp_err_t aws_iot_shadow_request_get(aws_iot_shadow_handle_ptr handle);
 
 esp_err_t aws_iot_shadow_request_update(aws_iot_shadow_handle_ptr handle, const char *data, size_t data_len);
 
+#if AWS_IOT_SHADOW_SUPPORT_DELETE
 esp_err_t aws_iot_shadow_request_delete(aws_iot_shadow_handle_ptr handle);
+#endif
 
 #ifdef __cplusplus
 }
