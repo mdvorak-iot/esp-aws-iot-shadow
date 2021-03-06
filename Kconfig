@@ -1,5 +1,9 @@
 menu "AWS IoT Shadow"
     config AWS_IOT_SHADOW_SUPPORT_DELTA
         bool "Listen to /update/delta messages"
-        default n
+        default y
+
+    config CONFIG_AWS_IOT_SHADOW_SUPPORT_DELETE
+        bool "Listen to /delete/* messages"
+        default y
 endmenu

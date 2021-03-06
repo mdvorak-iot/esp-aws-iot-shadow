@@ -1,7 +1,6 @@
 #ifndef AWS_IOT_SHADOW_H_
 #define AWS_IOT_SHADOW_H_
 
-#include <cJSON.h>
 #include <esp_err.h>
 #include <mqtt_client.h>
 
@@ -20,6 +19,10 @@ extern "C" {
 
 #ifndef AWS_IOT_SHADOW_SUPPORT_DELTA
 #define AWS_IOT_SHADOW_SUPPORT_DELTA CONFIG_AWS_IOT_SHADOW_SUPPORT_DELTA
+#endif
+
+#ifndef AWS_IOT_SHADOW_SUPPORT_DELETE
+#define AWS_IOT_SHADOW_SUPPORT_DELETE CONFIG_AWS_IOT_SHADOW_SUPPORT_DELETE
 #endif
 
 ESP_EVENT_DECLARE_BASE(AWS_IOT_SHADOW_EVENT);
@@ -44,26 +47,26 @@ enum aws_iot_shadow_event
     AWS_IOT_SHADOW_EVENT_READY = 0,
     /** @brief Disconnected from the server */
     AWS_IOT_SHADOW_EVENT_DISCONNECTED = 1,
-    /** @brief Received error to an action */
-    AWS_IOT_SHADOW_EVENT_ERROR = 2,
     /** @brief Received a get state */
-    AWS_IOT_SHADOW_EVENT_GET_ACCEPTED = 3,
-    /** @brief Shadow was deleted */
-    AWS_IOT_SHADOW_EVENT_DELETE_ACCEPTED = 4,
+    AWS_IOT_SHADOW_EVENT_GET_ACCEPTED = 2,
+    /** @brief Received error to a get action */
+    AWS_IOT_SHADOW_EVENT_GET_REJECTED = 3,
     /** @brief Received an updated state */
-    AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED = 5,
+    AWS_IOT_SHADOW_EVENT_UPDATE_ACCEPTED = 4,
+    /** @brief Received error to an update action */
+    AWS_IOT_SHADOW_EVENT_UPDATE_REJECTED = 5,
 #if AWS_IOT_SHADOW_SUPPORT_DELTA
     /** @brief Received a state delta */
     AWS_IOT_SHADOW_EVENT_UPDATE_DELTA = 6,
 #endif
+#if AWS_IOT_SHADOW_SUPPORT_DELETE
+    /** @brief Shadow was deleted */
+    AWS_IOT_SHADOW_EVENT_DELETE_ACCEPTED = 7,
+    /** @brief Received error to a delete action */
+    AWS_IOT_SHADOW_EVENT_DELETE_REJECTED = 8,
+#endif
     /** Invalid event ID */
-    AWS_IOT_SHADOW_EVENT_MAX = 7,
-};
-
-struct aws_iot_shadow_event_error
-{
-    int code;
-    const char *message;
+    AWS_IOT_SHADOW_EVENT_MAX = 9,
 };
 
 struct aws_iot_shadow_event_data
@@ -72,13 +75,8 @@ struct aws_iot_shadow_event_data
     aws_iot_shadow_handle_ptr handle;
     const char *thing_name;
     const char *shadow_name;
-    const cJSON *root;
-    const cJSON *desired;
-    const cJSON *reported;
-    const cJSON *delta;
-    uint64_t version;
-    const char *client_token;
-    const struct aws_iot_shadow_event_error *error;
+    const char *data;
+    size_t data_len;
 };
 
 esp_err_t aws_iot_shadow_init(esp_mqtt_client_handle_t client, const char *thing_name, const char *shadow_name,
@@ -111,18 +109,11 @@ bool aws_iot_shadow_wait_for_ready(aws_iot_shadow_handle_ptr handle, TickType_t 
 
 esp_err_t aws_iot_shadow_request_get(aws_iot_shadow_handle_ptr handle);
 
-esp_err_t aws_iot_shadow_request_update_raw(aws_iot_shadow_handle_ptr handle, const cJSON *root);
+esp_err_t aws_iot_shadow_request_update(aws_iot_shadow_handle_ptr handle, const char *data, size_t data_len);
 
-esp_err_t aws_iot_shadow_request_update(aws_iot_shadow_handle_ptr handle,
-                                        const cJSON *desired,
-                                        const cJSON *reported,
-                                        const char *client_token);
-
-esp_err_t aws_iot_shadow_request_update_reported(aws_iot_shadow_handle_ptr handle,
-                                                 const cJSON *reported,
-                                                 const char *client_token);
-
+#if AWS_IOT_SHADOW_SUPPORT_DELETE
 esp_err_t aws_iot_shadow_request_delete(aws_iot_shadow_handle_ptr handle);
+#endif
 
 #ifdef __cplusplus
 }
