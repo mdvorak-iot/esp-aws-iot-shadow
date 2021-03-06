@@ -225,7 +225,7 @@ static _Noreturn void run()
     cJSON *to_report = cJSON_AddObjectToObject(to_state, AWS_IOT_SHADOW_JSON_REPORTED);
     cJSON *now_obj = cJSON_AddNumberToObject(to_report, "now", 0);
 
-    char buf[2048] = {};
+    char buf[1025] = {};
 
     for (;;)
     {
