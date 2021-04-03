@@ -27,7 +27,7 @@ static const int SUBSCRIBED_UPDATE_REJECTED_BIT = BIT15;
 #if AWS_IOT_SHADOW_SUPPORT_DELTA
 static const int SUBSCRIBED_UPDATE_DELTA_BIT = BIT16;
 #else
-static const int SUBSCRIBED_UPDATE_DELTA_BIT = 0; // no bit, used in SUBSCRIBED_ALL_BITS
+static const int SUBSCRIBED_UPDATE_DELTA_BIT = 0;    // no bit, used in SUBSCRIBED_ALL_BITS
 #endif
 #if AWS_IOT_SHADOW_SUPPORT_DELETE
 static const int SUBSCRIBED_DELETE_ACCEPTED_BIT = BIT17;
@@ -566,7 +566,7 @@ esp_err_t aws_iot_shadow_request_update(aws_iot_shadow_handle_ptr handle, const 
     ESP_LOGI(TAG, "sending %s (%zu bytes)", topic_name, data_len);
     ESP_LOGD(TAG, "sending %s payload: %.*s", topic_name, (int)data_len, data);
 
-    int msg_id = esp_mqtt_client_publish(handle->client, topic_name, data, data_len, 1, 0);
+    int msg_id = esp_mqtt_client_publish(handle->client, topic_name, data, (int)data_len, 1, 0);
     return msg_id != -1 ? ESP_OK : ESP_FAIL;
 }
 
