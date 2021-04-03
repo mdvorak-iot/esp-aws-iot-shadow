@@ -1,5 +1,5 @@
-#ifndef AWS_IOT_SHADOW_H_
-#define AWS_IOT_SHADOW_H_
+#ifndef AWS_IOT_SHADOW_H
+#define AWS_IOT_SHADOW_H
 
 #include <esp_err.h>
 #include <mqtt_client.h>

@@ -1,8 +1,7 @@
 #include "aws_iot_shadow.h"
-#include "aws_iot_shadow_topic.h"
+#include "aws_iot_shadow_handle.h"
 #include <esp_event.h>
 #include <esp_log.h>
-#include <freertos/event_groups.h>
 #include <string.h>
 
 static const char TAG[] = "aws_iot_shadow";
@@ -54,21 +53,6 @@ struct topic_subscriptions
     int delete_accepted_msg_id;
     int delete_rejected_msg_id;
 #endif
-};
-
-struct aws_iot_shadow_handle
-{
-    esp_mqtt_client_handle_t client;
-    esp_event_loop_handle_t event_loop;
-    EventGroupHandle_t event_group;
-    char topic_prefix[AWS_IOT_SHADOW_TOPIC_MAX_LENGTH];
-    uint8_t topic_prefix_len;
-
-    char thing_name[AWS_IOT_SHADOW_THINGNAME_LENGTH_MAX];
-    char shadow_name[AWS_IOT_SHADOW_NAME_LENGTH_MAX];
-
-    // For MQTT_EVENT_SUBSCRIBED tracking
-    struct topic_subscriptions *topic_subscriptions;
 };
 
 inline static char *aws_iot_shadow_topic_name(aws_iot_shadow_handle_ptr handle, const char *topic_suffix,
