@@ -461,7 +461,7 @@ esp_err_t aws_iot_shadow_delete(aws_iot_shadow_handle_ptr handle)
 {
     if (handle == NULL)
     {
-        return ESP_OK;
+        return ESP_ERR_INVALID_ARG;
     }
 
     // Unregister event handler
