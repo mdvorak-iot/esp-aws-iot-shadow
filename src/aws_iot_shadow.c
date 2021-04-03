@@ -40,6 +40,22 @@ static const int SUBSCRIBED_DELETE_REJECTED_BIT = 0; // no bit, used in SUBSCRIB
 static const int SUBSCRIBED_ALL_BITS =
     SUBSCRIBED_GET_ACCEPTED_BIT | SUBSCRIBED_GET_REJECTED_BIT | SUBSCRIBED_UPDATE_ACCEPTED_BIT | SUBSCRIBED_UPDATE_REJECTED_BIT | SUBSCRIBED_UPDATE_DELTA_BIT | SUBSCRIBED_DELETE_ACCEPTED_BIT | SUBSCRIBED_DELETE_REJECTED_BIT;
 
+// For MQTT_EVENT_SUBSCRIBED tracking
+struct topic_subscriptions
+{
+    int get_accepted_msg_id;
+    int get_rejected_msg_id;
+    int update_accepted_msg_id;
+    int update_rejected_msg_id;
+#if AWS_IOT_SHADOW_SUPPORT_DELTA
+    int update_delta_msg_id;
+#endif
+#if AWS_IOT_SHADOW_SUPPORT_DELETE
+    int delete_accepted_msg_id;
+    int delete_rejected_msg_id;
+#endif
+};
+
 struct aws_iot_shadow_handle
 {
     esp_mqtt_client_handle_t client;
@@ -52,20 +68,7 @@ struct aws_iot_shadow_handle
     char shadow_name[AWS_IOT_SHADOW_NAME_LENGTH_MAX];
 
     // For MQTT_EVENT_SUBSCRIBED tracking
-    struct topic_subscriptions_t
-    {
-        int get_accepted_msg_id;
-        int get_rejected_msg_id;
-        int update_accepted_msg_id;
-        int update_rejected_msg_id;
-#if AWS_IOT_SHADOW_SUPPORT_DELTA
-        int update_delta_msg_id;
-#endif
-#if AWS_IOT_SHADOW_SUPPORT_DELETE
-        int delete_accepted_msg_id;
-        int delete_rejected_msg_id;
-#endif
-    } topic_subscriptions;
+    struct topic_subscriptions *topic_subscriptions;
 };
 
 inline static char *aws_iot_shadow_topic_name(aws_iot_shadow_handle_ptr handle, const char *topic_suffix,
@@ -126,21 +129,21 @@ static void aws_iot_shadow_mqtt_connected(aws_iot_shadow_handle_ptr handle)
 {
     // Reset tracking
     xEventGroupClearBits(handle->event_group, SUBSCRIBED_ALL_BITS);
-    memset(&handle->topic_subscriptions, 0, sizeof(handle->topic_subscriptions));
+    memset(handle->topic_subscriptions, 0, sizeof(*handle->topic_subscriptions));
 
     // Subscribe
     char topic_name[AWS_IOT_SHADOW_TOPIC_MAX_LENGTH] = {};
 
-    handle->topic_subscriptions.get_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, aws_iot_shadow_topic_name(handle, (AWS_IOT_SHADOW_OP_GET AWS_IOT_SHADOW_SUFFIX_ACCEPTED), topic_name, sizeof(topic_name)), 0);
-    handle->topic_subscriptions.get_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, aws_iot_shadow_topic_name(handle, (AWS_IOT_SHADOW_OP_GET AWS_IOT_SHADOW_SUFFIX_REJECTED), topic_name, sizeof(topic_name)), 0);
-    handle->topic_subscriptions.update_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, aws_iot_shadow_topic_name(handle, (AWS_IOT_SHADOW_OP_UPDATE AWS_IOT_SHADOW_SUFFIX_ACCEPTED), topic_name, sizeof(topic_name)), 0);
-    handle->topic_subscriptions.update_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, aws_iot_shadow_topic_name(handle, (AWS_IOT_SHADOW_OP_UPDATE AWS_IOT_SHADOW_SUFFIX_REJECTED), topic_name, sizeof(topic_name)), 0);
+    handle->topic_subscriptions->get_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, aws_iot_shadow_topic_name(handle, (AWS_IOT_SHADOW_OP_GET AWS_IOT_SHADOW_SUFFIX_ACCEPTED), topic_name, sizeof(topic_name)), 0);
+    handle->topic_subscriptions->get_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, aws_iot_shadow_topic_name(handle, (AWS_IOT_SHADOW_OP_GET AWS_IOT_SHADOW_SUFFIX_REJECTED), topic_name, sizeof(topic_name)), 0);
+    handle->topic_subscriptions->update_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, aws_iot_shadow_topic_name(handle, (AWS_IOT_SHADOW_OP_UPDATE AWS_IOT_SHADOW_SUFFIX_ACCEPTED), topic_name, sizeof(topic_name)), 0);
+    handle->topic_subscriptions->update_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, aws_iot_shadow_topic_name(handle, (AWS_IOT_SHADOW_OP_UPDATE AWS_IOT_SHADOW_SUFFIX_REJECTED), topic_name, sizeof(topic_name)), 0);
 #if AWS_IOT_SHADOW_SUPPORT_DELTA
-    handle->topic_subscriptions.update_delta_msg_id = esp_mqtt_client_subscribe(handle->client, aws_iot_shadow_topic_name(handle, (AWS_IOT_SHADOW_OP_UPDATE AWS_IOT_SHADOW_SUFFIX_DELTA), topic_name, sizeof(topic_name)), 0);
+    handle->topic_subscriptions->update_delta_msg_id = esp_mqtt_client_subscribe(handle->client, aws_iot_shadow_topic_name(handle, (AWS_IOT_SHADOW_OP_UPDATE AWS_IOT_SHADOW_SUFFIX_DELTA), topic_name, sizeof(topic_name)), 0);
 #endif
 #if AWS_IOT_SHADOW_SUPPORT_DELETE
-    handle->topic_subscriptions.delete_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, aws_iot_shadow_topic_name(handle, (AWS_IOT_SHADOW_OP_DELETE AWS_IOT_SHADOW_SUFFIX_ACCEPTED), topic_name, sizeof(topic_name)), 0);
-    handle->topic_subscriptions.delete_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, aws_iot_shadow_topic_name(handle, (AWS_IOT_SHADOW_OP_DELETE AWS_IOT_SHADOW_SUFFIX_REJECTED), topic_name, sizeof(topic_name)), 0);
+    handle->topic_subscriptions->delete_accepted_msg_id = esp_mqtt_client_subscribe(handle->client, aws_iot_shadow_topic_name(handle, (AWS_IOT_SHADOW_OP_DELETE AWS_IOT_SHADOW_SUFFIX_ACCEPTED), topic_name, sizeof(topic_name)), 0);
+    handle->topic_subscriptions->delete_rejected_msg_id = esp_mqtt_client_subscribe(handle->client, aws_iot_shadow_topic_name(handle, (AWS_IOT_SHADOW_OP_DELETE AWS_IOT_SHADOW_SUFFIX_REJECTED), topic_name, sizeof(topic_name)), 0);
 #endif
 
     // Connected state
@@ -163,40 +166,40 @@ static void aws_iot_shadow_mqtt_subscribed(aws_iot_shadow_handle_ptr handle, esp
         ESP_LOGD(TAG, "invalid subscription msg_id");
         return;
     }
-    else if (event->msg_id == handle->topic_subscriptions.get_accepted_msg_id)
+    else if (event->msg_id == handle->topic_subscriptions->get_accepted_msg_id)
     {
         ESP_LOGD(TAG, "subscribed to %s" AWS_IOT_SHADOW_OP_GET AWS_IOT_SHADOW_SUFFIX_ACCEPTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_GET_ACCEPTED_BIT);
     }
-    else if (event->msg_id == handle->topic_subscriptions.get_rejected_msg_id)
+    else if (event->msg_id == handle->topic_subscriptions->get_rejected_msg_id)
     {
         ESP_LOGD(TAG, "subscribed to %s" AWS_IOT_SHADOW_OP_GET AWS_IOT_SHADOW_SUFFIX_REJECTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_GET_REJECTED_BIT);
     }
-    else if (event->msg_id == handle->topic_subscriptions.update_accepted_msg_id)
+    else if (event->msg_id == handle->topic_subscriptions->update_accepted_msg_id)
     {
         ESP_LOGD(TAG, "subscribed to %s" AWS_IOT_SHADOW_OP_UPDATE AWS_IOT_SHADOW_SUFFIX_ACCEPTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_ACCEPTED_BIT);
     }
-    else if (event->msg_id == handle->topic_subscriptions.update_rejected_msg_id)
+    else if (event->msg_id == handle->topic_subscriptions->update_rejected_msg_id)
     {
         ESP_LOGD(TAG, "subscribed to %s" AWS_IOT_SHADOW_OP_UPDATE AWS_IOT_SHADOW_SUFFIX_REJECTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_REJECTED_BIT);
     }
 #if AWS_IOT_SHADOW_SUPPORT_DELTA
-    else if (event->msg_id == handle->topic_subscriptions.update_delta_msg_id)
+    else if (event->msg_id == handle->topic_subscriptions->update_delta_msg_id)
     {
         ESP_LOGD(TAG, "subscribed to %s" AWS_IOT_SHADOW_OP_UPDATE AWS_IOT_SHADOW_SUFFIX_DELTA, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_UPDATE_DELTA_BIT);
     }
 #endif
 #if AWS_IOT_SHADOW_SUPPORT_DELETE
-    else if (event->msg_id == handle->topic_subscriptions.delete_accepted_msg_id)
+    else if (event->msg_id == handle->topic_subscriptions->delete_accepted_msg_id)
     {
         ESP_LOGD(TAG, "subscribed to %s" AWS_IOT_SHADOW_OP_DELETE AWS_IOT_SHADOW_SUFFIX_ACCEPTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_DELETE_ACCEPTED_BIT);
     }
-    else if (event->msg_id == handle->topic_subscriptions.delete_rejected_msg_id)
+    else if (event->msg_id == handle->topic_subscriptions->delete_rejected_msg_id)
     {
         ESP_LOGD(TAG, "subscribed to %s" AWS_IOT_SHADOW_OP_DELETE AWS_IOT_SHADOW_SUFFIX_REJECTED, handle->topic_prefix);
         bits = xEventGroupSetBits(handle->event_group, SUBSCRIBED_DELETE_REJECTED_BIT);
@@ -405,10 +408,19 @@ esp_err_t aws_iot_shadow_init(esp_mqtt_client_handle_t client, const char *thing
     // Init
     memset(result, 0, sizeof(*result));
 
+    result->topic_subscriptions = (struct topic_subscriptions *)malloc(sizeof(*result->topic_subscriptions));
+    if (result->topic_subscriptions == NULL)
+    {
+        aws_iot_shadow_delete(result);
+        return ESP_ERR_NO_MEM;
+    }
+    memset(result->topic_subscriptions, 0, sizeof(*result->topic_subscriptions));
+
     result->client = client;
     result->event_group = xEventGroupCreate();
     assert(result->event_group);
 
+    // Create event loop
     esp_event_loop_args_t event_loop_args = {
         .queue_size = 1,
     };
@@ -420,6 +432,7 @@ esp_err_t aws_iot_shadow_init(esp_mqtt_client_handle_t client, const char *thing
         return err;
     }
 
+    // Initialize names
     strcpy(result->thing_name, thing_name);
 
     if (shadow_name == NULL)
@@ -473,6 +486,7 @@ esp_err_t aws_iot_shadow_delete(aws_iot_shadow_handle_ptr handle)
     // }
 
     // Properly destroy
+    free(handle->topic_subscriptions);
     if (handle->event_group)
     {
         vEventGroupDelete(handle->event_group);
