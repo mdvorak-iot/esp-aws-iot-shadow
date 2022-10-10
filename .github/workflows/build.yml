@@ -20,7 +20,7 @@ jobs:
         AWS_IOT_SHADOW_SUPPORT_DELETE: [ 0, 1 ]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3.1.0
         with:
           submodules: recursive
 
